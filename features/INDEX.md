@@ -15,7 +15,7 @@
 
 | ID | Feature | Status | Spec | Created |
 |----|---------|--------|------|---------|
-| PROJ-1 | Supabase Infrastructure Setup — Projekt, Umgebungsvariablen, Schema-Entwurf, Auth-Konfiguration (P0, Abhängigkeiten: –) | Architected | [PROJ-1](PROJ-1-supabase-infrastructure-setup.md) | 2026-11-08 |
+| PROJ-1 | Supabase Infrastructure Setup — Projekt, Umgebungsvariablen, Schema-Entwurf, Auth-Konfiguration (P0, Abhängigkeiten: –) | In Progress | [PROJ-1](PROJ-1-supabase-infrastructure-setup.md) | 2026-11-08 |
 | PROJ-11 | Design-System-Basis — Theme, Hell-/Dunkelmodus, Navigation und Logo, App-Layout (P0, Abhängigkeiten: PROJ-1) | Roadmap | – | 2026-11-08 |
 | PROJ-2 | Anmeldung — E-Mail und Passwort, Einzelnutzer, geschützte Seiten (P0, Abhängigkeiten: PROJ-1) | Roadmap | – | 2026-11-08 |
 | PROJ-3 | Kunden- und Projektverwaltung — anlegen, bearbeiten, archivieren (P0, Abhängigkeiten: PROJ-1, PROJ-2) | Roadmap | – | 2026-11-08 |

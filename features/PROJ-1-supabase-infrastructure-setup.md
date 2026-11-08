@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -140,6 +140,32 @@ Gespeichert wird später in der Supabase-Datenbank (PostgreSQL). Die Anmeldedate
 - **PROJ-2** baut auf dem Server-Zugang mit Cookies auf.
 - **PROJ-3 und PROJ-4** legen ihre Tabellen als Migrationsdateien in `supabase/migrations` an, jeweils mit RLS.
 - **PROJ-11** kann die Statusseite später in das App-Layout einbinden.
+
+## Implementation Notes (Backend, 2026-11-08)
+
+**Gebaut:**
+- `src/lib/env.ts`: zentrale Prüfung der Variablen mit Zod. Fehler nennen den Variablennamen (`EnvError`). Lehnt zusätzlich `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` ab.
+- `src/lib/supabase/client.ts`: Supabase-Zugang für den Browser.
+- `src/lib/supabase/server.ts`: Supabase-Zugang für den Server (Anmeldung aus Cookies).
+- `src/lib/supabase/health.ts`: `checkDatabase()` ruft den Health-Endpunkt des Auth-Dienstes auf (5 s Timeout) und liefert `ok`, `config-error` oder `unreachable` mit der vereinbarten Meldung.
+- `supabase/migrations/.gitkeep`: Ordner für die Migrationen von PROJ-3 und PROJ-4.
+- Neues Paket `@supabase/ssr`.
+- Tests: `src/lib/env.test.ts` und `src/lib/supabase/health.test.ts` (10 Tests, alle grün).
+
+**Abweichungen vom Design:**
+- Der Platzhalter `src/lib/supabase.ts` wurde entfernt. Niemand hat ihn importiert, und er wird durch die beiden Dateien in `src/lib/supabase/` ersetzt.
+- Die Seite `/status` ist noch **nicht** gebaut. Sie kommt mit `/frontend` und nutzt `checkDatabase()`.
+- Es gibt keine API-Route. Der Verbindungstest läuft serverseitig direkt in der Seite.
+- Es wurden keine Tabellen angelegt (Out of Scope), also gibt es auch keine RLS-Regeln.
+
+**Geprüft:**
+- `npm test`: 10 von 10 grün. `npx tsc --noEmit`: keine Fehler. `npm run build`: erfolgreich.
+- Gegen das echte Projekt: Der Health-Endpunkt antwortet mit HTTP 200 mit öffentlichem Schlüssel und mit 401 ohne.
+
+**Offen / zu beachten:**
+- `.env.local.example` ist noch nicht auf Vollständigkeit geprüft. Sie muss `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` mit Dummy-Werten und Erklärung enthalten, ohne Service-Role-Schlüssel. Die Datei ist für die KI-Werkzeuge gesperrt (Lesen von `.env*`) und muss von Hand geprüft werden.
+- Dashboard-Schritte (manuell, erledigt am 2026-11-08): Konto angelegt (1 Nutzer, bestätigt), Registrierung abgeschaltet (`disable_signup: true` über die Auth-Einstellungen geprüft), E-Mail-Login aktiv. Die Redirect-URL `http://localhost:3000` kann nicht von außen geprüft werden und gilt als vom Nutzer eingetragen.
+- `npm run lint` war defekt (`next lint` gibt es in Next 16 nicht mehr). Behoben außerhalb des Feature-Umfangs: neue `eslint.config.mjs` (Flat Config mit `eslint-config-next`), Skript auf `eslint .` umgestellt, alte `.eslintrc.json` entfernt. Für die generierten shadcn-Komponenten in `src/components/ui` ist die Regel `react-hooks/purity` abgeschaltet. Verbleibend: 1 Warnung in `src/hooks/use-toast.ts` (Starter-Code).
 
 ## QA Test Results
 _To be added by /qa_
