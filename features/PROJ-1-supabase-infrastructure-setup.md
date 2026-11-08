@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -75,13 +75,71 @@ Ein laufender Timer ist ein Zeiteintrag mit Beginn, aber ohne Ende. So sehen all
 | Laufender Timer = Zeiteintrag ohne Ende | Alle Geräte sehen denselben Timer. «Nur ein Timer aktiv» lässt sich in PROJ-6 einfach absichern. | 2026-11-08 |
 
 ### Technical Decisions
-<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Zusätzliches Paket `@supabase/ssr` neben `@supabase/supabase-js` | Speichert die Anmeldung in Cookies. Nur so erkennen geschützte Seiten (PROJ-2) den eingeloggten Nutzer schon auf dem Server. Das reine Browser-Paket kann das nicht. | 2026-11-08 |
+| Nur zwei Variablen in der App: Projekt-URL und öffentlicher Schlüssel | Der Service-Role-Schlüssel (Vollzugriff) wird von der App nie gebraucht. Ohne ihn kann er auch nicht versehentlich an den Browser gelangen. | 2026-11-08 |
+| Variablen werden zentral an einer Stelle geprüft | Fehlt eine Variable, erscheint überall dieselbe klare Meldung mit dem Variablennamen, lokal wie auf Vercel. | 2026-11-08 |
+| Verbindungstest auf einer eigenen Seite `/status` | Bleibt dauerhaft nützlich (z. B. bei pausiertem Projekt) und ist ohne Terminal testbar. | 2026-11-08 |
+| Schema-Änderungen als Migrationsdateien im Repo (Ordner `supabase/migrations`) | Ein Projekt für Entwicklung und Produktion: Jede Änderung ist nachvollziehbar und das Schema lässt sich neu aufbauen. | 2026-11-08 |
+| Auth-Einstellungen (Registrierung aus, Redirect-URLs) manuell im Supabase Dashboard | Diese Einstellungen sind nicht Teil des Codes. Eine Checkliste im Spec stellt sicher, dass nichts vergessen wird. | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Bausteine (Struktur)
+```
+App
++-- Verbindung zu Supabase (zentral, einmal gebaut)
+|   +-- Prüfung der Umgebungsvariablen (klare Meldung bei fehlender Variable)
+|   +-- Zugang für den Browser (öffentlicher Schlüssel)
+|   +-- Zugang für den Server (liest die Anmeldung aus den Cookies)
++-- Seite /status
+|   +-- Statusanzeige «Datenbank erreichbar» (grün, mit Symbol und Text)
+|   +-- Fehleranzeige «Datenbank nicht erreichbar. Ist das Supabase-Projekt pausiert?»
+|   +-- Fehleranzeige «Variable X fehlt» (bei fehlender Konfiguration)
++-- Konfigurationsdateien
+|   +-- .env.local.example (Variablen mit Erklärung)
+|   +-- supabase/migrations (leer, bereit für PROJ-3 und PROJ-4)
++-- Dokumentation im Spec
+    +-- Checkliste für die Einstellungen im Supabase Dashboard
+```
+Für die Statusseite werden die vorhandenen shadcn/ui-Komponenten (z. B. Alert und Card) verwendet. Neue UI-Komponenten sind nicht nötig.
+
+### B) Datenmodell (in einfachen Worten)
+In PROJ-1 werden **keine Daten gespeichert** und keine Tabellen angelegt. Der Schema-Entwurf im Spec bleibt maßgeblich:
+- **Kunde:** Name, archiviert (ja/nein), gehört dem Nutzer
+- **Projekt:** Name, archiviert (ja/nein), gehört einem Kunden und dem Nutzer
+- **Zeiteintrag:** Datum, Beginn, Ende, gearbeitete und verrechenbare Stunden, Beschreibung, gehört einem Projekt und dem Nutzer. Ein laufender Timer ist ein Eintrag ohne Ende.
+
+Gespeichert wird später in der Supabase-Datenbank (PostgreSQL). Die Anmeldedaten liegen bei Supabase Auth.
+
+### C) Technische Entscheidungen (mit Begründung)
+- **Supabase als einziges Backend:** Es deckt Datenbank und Login in einem kostenlosen Dienst ab. Das passt zu «geräteübergreifend» und «kostenlos».
+- **Anmeldung in Cookies statt im Browser-Speicher:** Die Seiten können so schon vor dem Anzeigen prüfen, ob du eingeloggt bist. Das braucht PROJ-2 für geschützte Seiten.
+- **Kein Service-Role-Schlüssel in der App:** Er hebelt alle Zugriffsregeln aus. Die App arbeitet nur mit dem öffentlichen Schlüssel, und die Datenbank schützt sich über RLS.
+- **Eine zentrale Variablenprüfung:** Ein Tippfehler im Namen fällt sofort auf und nicht erst als unverständlicher Fehler später.
+- **Statusseite:** Sie ist die schnellste Diagnose, wenn die App «nicht geht». Sie zeigt, ob die Ursache bei der Konfiguration oder beim pausierten Projekt liegt.
+- **Migrationsdateien im Repo:** Ohne getrennte Test- und Produktivdatenbank ist die Versionierung des Schemas die Sicherung gegen Fehler.
+
+### D) Manuelle Schritte im Supabase Dashboard (Checkliste)
+1. E-Mail/Passwort-Login ist aktiviert.
+2. Dein Konto wird einmal angelegt (Registrierung oder Dashboard).
+3. Danach wird die öffentliche Registrierung abgeschaltet.
+4. Redirect-URL `http://localhost:3000` ist eingetragen. Die Vercel-URL folgt bei `/deploy`.
+5. Der Service-Role-Schlüssel wird nirgends in der App oder in `.env.local` hinterlegt.
+
+### E) Abhängigkeiten (Pakete)
+- `@supabase/ssr` (neu): Anmeldung über Cookies für Server und Browser
+- `@supabase/supabase-js` (vorhanden): Verbindung zu Supabase
+- `zod` (vorhanden): Prüfung der Umgebungsvariablen
+
+### F) Auswirkungen auf andere Features
+- **PROJ-2** baut auf dem Server-Zugang mit Cookies auf.
+- **PROJ-3 und PROJ-4** legen ihre Tabellen als Migrationsdateien in `supabase/migrations` an, jeweils mit RLS.
+- **PROJ-11** kann die Statusseite später in das App-Layout einbinden.
 
 ## QA Test Results
 _To be added by /qa_
