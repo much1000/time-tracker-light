@@ -1,7 +1,7 @@
 {
-  "name": "ai-coding-starter-kit",
+  "name": "time-tracker-light",
   "version": "1.0.0",
-  "description": "AI Coding Starter Kit with AI Agent Team System for Claude Code",
+  "description": "Persönliche Zeiterfassung pro Kunde und Projekt",
   "private": true,
   "scripts": {
     "dev": "next dev",
