@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -330,4 +330,21 @@ Keine bereitgestellten Features vorhanden (keines mit Status «Deployed»). Die 
 - **Recommendation:** Deploy möglich. Die offenen Low-Fehler wandern in PROJ-11 (BUG-2, BUG-5), PROJ-2 (BUG-6), `/deploy` (BUG-4) und den nächsten Sprint (BUG-1). Vor dem Deployment die Redirect-URL und die Variablen auf Vercel prüfen (AC-8, EC-6).
 
 ## Deployment
-_To be added by /deploy_
+**Deployed:** 2026-11-09
+**Produktions-URL:** https://time-tracker-light.vercel.app
+**Hosting:** Vercel Hobby, automatisches Deployment bei Push auf `main`
+
+**Geprüft nach dem Deployment**
+- [x] `/`, `/status`, `/icon.png`, `/apple-icon.png` antworten mit 200, eine unbekannte Seite mit 404
+- [x] `/status` meldet «Datenbank erreichbar» (Umgebungsvariablen auf Vercel sind korrekt)
+- [x] Sicherheits-Header auf allen Antworten: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: origin-when-cross-origin`, `Strict-Transport-Security` (BUG-4 aus PROJ-1 behoben, siehe `next.config.ts`)
+- [x] Keine Konsolenfehler und keine fehlgeschlagenen Anfragen auf `/` und `/status` bei 375 und 1440 px
+- [x] Weder Service-Role-Schlüssel noch Tokens im ausgelieferten HTML
+- [x] Genau ein `<main>` im Produktionsbuild
+
+**Nicht gemacht**
+- Fehlerverfolgung (Sentry): bewusst weggelassen, persönliche App ohne Nutzerverkehr; Fehler stehen in den Vercel-Logs.
+- Lighthouse-Messung: nicht ausgeführt (Werkzeug nicht installiert); bei Bedarf in Chrome unter «Lighthouse» nachholen.
+- Content-Security-Policy: bewusst noch nicht gesetzt (kann die App brechen, braucht eigene Tests).
+- Redirect-URL in Supabase (AC-8) und echter Login (AC-6) bleiben bis PROJ-2 offen.
+
