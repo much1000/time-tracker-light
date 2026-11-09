@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -186,8 +186,148 @@ Gespeichert wird später in der Supabase-Datenbank (PostgreSQL). Die Anmeldedate
 - Produktivserver lokal gestartet: `/status` antwortet mit HTTP 200 und zeigt «Datenbank erreichbar» gegen das echte Supabase-Projekt.
 - Noch nicht geprüft: Aussehen im Browser (Mobil 375 px, Tablet, Desktop) und die Fehlerzustände mit absichtlich falscher Konfiguration. Das gehört in `/qa`.
 
+---
+
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-09
+**App URL:** http://localhost:3000 (Entwicklungsserver mit echtem Supabase-Projekt)
+**Tester:** QA Engineer (AI)
+**Browser:** Google Chrome (Desktop). Firefox und Safari/WebKit nicht getestet (siehe «Nicht geprüft»).
+
+### Automatische Tests
+- Unit-Tests (`npm test`): 13 von 13 bestanden.
+- E2E-Tests (`tests/PROJ-1-supabase-infrastructure-setup.spec.ts`): 7 von 7 bestanden, ausgeführt mit dem installierten Google Chrome.
+- `npx tsc --noEmit`: keine Fehler. `npm run lint`: 0 Fehler, 1 Warnung (Starter-Code). `npm run build`: erfolgreich.
+
+### Acceptance Criteria Status
+
+#### AC-1: Verbindungstest meldet Erfolg
+- [x] `/status` zeigt «Datenbank erreichbar» gegen das echte Projekt (E2E und Screenshot).
+
+#### AC-2: Fehlende Variable ergibt klare Meldung mit Variablennamen
+- [x] Durch Unit-Tests belegt (`env.test.ts`, `health.test.ts`, `database-status.test.tsx`): Name wird genannt, leerer Wert und ungültige URL werden erkannt.
+- Hinweis: Nicht im Browser gegengeprüft, da der Dev-Server des Nutzers auf Port 3000 einen zweiten Start im Projektordner blockierte.
+
+#### AC-3: `.env.local.example` dokumentiert alle Variablen
+- [x] Vom Nutzer bestätigt («passt»). Für die KI-Werkzeuge gesperrt, daher nicht selbst gelesen.
+
+#### AC-4: Keine Geheimnisse im Repo
+- [x] `git grep` über alle versionierten Dateien und `git log -G` über die gesamte Historie: keine Tokens oder Schlüssel. `.env.local` und `.mcp.json` sind in `.gitignore`, nur `.env.local.example` ist versioniert.
+
+#### AC-5: Service-Role-Schlüssel erreicht nie den Browser
+- [x] Der Code referenziert ihn nirgends. Ein `NEXT_PUBLIC_`-Service-Role-Schlüssel wird abgelehnt (Unit-Test). E2E: Weder HTML noch alle Skripte der Seite enthalten `service_role`, `sbp_…` oder `sb_secret_`.
+
+#### AC-6: Anmeldung mit E-Mail und Passwort möglich
+- [ ] Nicht vollständig prüfbar: E-Mail-Provider ist aktiv, 1 bestätigter Nutzer existiert. Ein echter Login ist erst mit PROJ-2 möglich. Bei PROJ-2 prüfen.
+
+#### AC-7: Fremde Registrierung wird abgelehnt
+- [x] Über die öffentlichen Auth-Einstellungen: `disable_signup: true`. Es wurde bewusst kein Registrierungsversuch ausgeführt, weil er bei einer Fehlkonfiguration ein echtes Konto angelegt hätte.
+
+#### AC-8: Redirect-URL `http://localhost:3000`
+- [ ] Von außen nicht prüfbar. Wird mit dem ersten Login in PROJ-2 sichtbar.
+
+#### AC-9: Meldung bei nicht erreichbarer oder pausierter Datenbank
+- [x] Netzwerkfehler und Fehlerantworten ergeben die vereinbarte Meldung (Unit-Tests). Ein echter Verbindungsfehler wurde gegen einen unbekannten Host nachgestellt (DNS-Fehler, der `fetch`-Fehlerpfad greift).
+- [ ] BUG-1: Auch ein falscher Schlüssel führt zu dieser Meldung (siehe unten).
+
+#### AC-10: Schema-Entwurf liegt vor
+- [x] Tabelle im Spec («Schema-Entwurf»), inklusive Besitzer-Feld und Timer-Regel.
+
+### Edge Cases Status
+
+#### EC-1: Variablen zeigen auf falsches oder gelöschtes Projekt
+- [x] Unbekannter Host ergibt «nicht erreichbar» statt Absturz.
+- [ ] BUG-1: Falscher Schlüssel bei richtigem Projekt wird als «pausiert?» gemeldet.
+
+#### EC-2: Projekt nach 7 Tagen pausiert
+- [ ] Nicht testbar, ohne das Projekt zu pausieren. Die Meldung ist durch Unit-Tests belegt. Das tatsächliche Antwortverhalten eines pausierten Projekts ist unbestätigt.
+
+#### EC-3: Internet fällt aus
+- [x] Der Fehlerpfad liefert die Meldung (Unit-Test, 5-Sekunden-Timeout vorhanden).
+
+#### EC-4: Zugriffstoken für den MCP-Server läuft ab
+- [x] Die App nutzt ihn nicht. Er steht nur in `.mcp.json` (ignoriert) und in einer Windows-Umgebungsvariable.
+
+#### EC-5: Service-Role-Schlüssel mit `NEXT_PUBLIC_`-Präfix
+- [x] Wird abgelehnt (Unit-Test).
+
+#### EC-6: Variablen fehlen auf Vercel
+- [ ] Nicht testbar vor `/deploy`. Das Verhalten ist dasselbe wie lokal (gleicher Code). Bei `/deploy` prüfen.
+
+### Security Audit Results
+- [x] Geheimnisse: keine im Quellcode, in der Historie oder im ausgelieferten Browser-Code.
+- [x] Schlüssel-Trennung: nur der öffentliche Schlüssel wird verwendet. Er ist im Browser-Code sichtbar, das ist so vorgesehen.
+- [x] Registrierung: abgeschaltet, 1 Nutzer vorhanden.
+- [x] Eingaben: Die Seite hat keine Nutzereingaben, daher keine XSS- oder Injection-Fläche. Variablennamen in der Fehlermeldung stammen aus einer festen Liste.
+- [x] Fehlermeldungen: nennen nur Variablennamen, nie Werte.
+- [x] Abhängigkeiten: `npm audit --omit=dev` meldet 0 Schwachstellen (BUG-3 behoben). Offen nur Entwicklungswerkzeuge.
+- [ ] BUG-4: Sicherheits-Header fehlen.
+- [ ] BUG-6: Die öffentliche Seite löst bei jedem Aufruf eine Anfrage an Supabase aus, ohne Begrenzung.
+- Autorisierung und RLS: nicht anwendbar, es gibt keine Tabellen und keine Nutzerdaten.
+
+### Regression
+Keine bereitgestellten Features vorhanden (keines mit Status «Deployed»). Die Starter-Seite `/` baut und lädt weiterhin (Build erfolgreich).
+
+### Bugs Found
+
+#### BUG-1: Falscher Schlüssel wird als «Projekt pausiert?» gemeldet
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. In `.env.local` `NEXT_PUBLIC_SUPABASE_ANON_KEY` auf einen ungültigen Wert setzen.
+  2. `/status` öffnen.
+  3. Erwartet: Hinweis auf einen ungültigen Schlüssel.
+  4. Tatsächlich: «Datenbank nicht erreichbar. Ist das Supabase-Projekt pausiert?». Supabase antwortet mit HTTP 401 (am echten Dienst bestätigt), und der Code behandelt jede Fehlerantwort gleich.
+- **Priority:** Fix in next sprint
+
+#### BUG-2: Kein Favicon (404)
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `/status` öffnen und die Konsole ansehen.
+  2. Erwartet: keine Fehler.
+  3. Tatsächlich: `GET /favicon.ico` antwortet mit 404 («Failed to load resource»). Das Design-System sieht das Würfel-Logo als Favicon vor.
+- **Priority:** Fix in PROJ-11 (Logo und Layout). Der E2E-Test klammert diesen Fehler bewusst aus.
+
+#### BUG-3: Abhängigkeiten mit bekannten Schwachstellen — BEHOBEN (2026-11-09)
+- **Behebung:** `npm audit fix`. `next` 16.1.1 auf 16.4.5, `zod` auf 4.6.7, außerdem `postcss`, `nanoid`, `sharp` und weitere indirekte Pakete. `npm audit --omit=dev` meldet jetzt **0 Schwachstellen**. `package.json` blieb unverändert (Versionsbereiche erlaubten die neuen Versionen), geändert ist `package-lock.json`.
+- **Folgefehler, ebenfalls behoben:** Mit Zod 4.6.7 lehnte `src/lib/env.ts` auch eine gültige Konfiguration ab (`z.undefined()` gilt im Objekt jetzt als Pflichtfeld). Die Unit-Tests haben das aufgefangen. Korrektur: Feld ist nun optional. Zusätzlich schließt `vitest.config.ts` den Ordner `tests/` aus, damit Vitest die Playwright-Tests nicht mitstartet.
+- **Erneut geprüft:** 13 von 13 Unit-Tests, 7 von 7 E2E-Tests (gegen einen frisch gebauten Produktivserver mit Next 16.4.5), TypeScript ohne Fehler, Lint ohne Fehler, Build erfolgreich.
+- **Rest:** `npm audit` (mit Dev-Paketen) zeigt noch 12 Meldungen (11 mittel, 1 hoch: `picomatch`) in `vitest`, `@vitest/ui`, `eslint-config-next` und deren Unterpaketen. Das sind reine Entwicklungswerkzeuge, die nicht ausgeliefert werden. Ein Update würde größere Versionssprünge (`--force`) erfordern und bleibt außerhalb von PROJ-1.
+- **Ursprüngliche Meldung:**
+- **Severity:** High (laut `npm audit`: 1 kritisch, 5 hoch, 1 mittel)
+- **Details:**
+  - `next` 16.1.1 (direkt): Dienstblockade über Bildoptimierung und über unsichere Verarbeitung von Server-Komponenten-Anfragen. Betroffen bis einschließlich 16.4.0.
+  - `zod` (direkt): hoher Speicherverbrauch bei übergroßen Sammlungen. In dieser App nicht auslösbar, da nur kurze Texte geprüft werden.
+  - Indirekt: `postcss`, `nanoid`, `sharp`, `source-map-js`, `baseline-browser-mapping`.
+  - Laut `npm audit` ist für alle eine Korrektur verfügbar (`npm audit fix`).
+- **Priority:** Fix before deployment. Danach Tests, Lint und Build erneut laufen lassen.
+
+#### BUG-4: Sicherheits-Header fehlen
+- **Severity:** Low
+- **Details:** Die Regeln verlangen X-Frame-Options, X-Content-Type-Options, Referrer-Policy und Strict-Transport-Security. `next.config.ts` setzt keine.
+- **Priority:** Fix in `/deploy` (dort vorgesehen)
+
+#### BUG-5: Fehlerfarbe zu kontrastarm, Dunkelmodus nicht aktiv
+- **Severity:** Low
+- **Details:** Die Standard-Fehlerfarbe von shadcn/ui hat auf Weiß 3,76 : 1 (Soll laut Design-System: 4,5 : 1). Erfolgsgrün erreicht 5,0 : 1 (hell) und 10,2 : 1 (dunkel). Bei dunkler Systemeinstellung bleibt die Seite hell, das Theme-Umschalten gibt es noch nicht.
+- **Priority:** Fix in PROJ-11 (Theme). Danach mit der Fehleransicht erneut prüfen.
+
+#### BUG-6: Öffentliche Seite ruft Supabase bei jedem Aufruf ab
+- **Severity:** Low
+- **Details:** `/status` ist ohne Login erreichbar und löst pro Aufruf eine Anfrage an Supabase aus (Timeout 5 Sekunden). Ohne Begrenzung ließe sich damit unnötig Last erzeugen. Risiko gering, da die App privat genutzt wird.
+- **Priority:** In PROJ-2 entscheiden, ob die Seite hinter den Login kommt.
+
+### Nicht geprüft
+- Firefox und Safari/WebKit. Der Download des mitgelieferten Chromium (und damit der WebKit-Variante «Mobile Safari» der Playwright-Konfiguration) blieb auf dieser Maschine hängen. `npm run test:e2e` funktioniert hier erst nach einem erfolgreichen `npx playwright install`.
+- Die drei Fehleransichten im Browser.
+- Verhalten eines tatsächlich pausierten Projekts.
+
+### Summary
+- **Acceptance Criteria:** 8/10 bestanden. AC-6 und AC-8 sind erst mit PROJ-2 prüfbar. Beides sind offene Prüfungen, keine Fehler.
+- **Bugs Found:** 6 insgesamt, davon 1 behoben (BUG-3, High). Offen: 5 low (0 critical, 0 high, 0 medium).
+- **Security:** Keine Geheimnisse und keine Zugriffsprobleme. Ausgelieferte Abhängigkeiten ohne bekannte Schwachstellen.
+- **Production Ready:** YES (nach Behebung von BUG-3 und erneuter Prüfung)
+- **Recommendation:** Deploy möglich. Die offenen Low-Fehler wandern in PROJ-11 (BUG-2, BUG-5), PROJ-2 (BUG-6), `/deploy` (BUG-4) und den nächsten Sprint (BUG-1). Vor dem Deployment die Redirect-URL und die Variablen auf Vercel prüfen (AC-8, EC-6).
 
 ## Deployment
 _To be added by /deploy_
