@@ -20,7 +20,7 @@ export default async function StatusPage() {
   const result = await checkDatabase()
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-4 py-8">
+    <div className="mx-auto w-full max-w-xl">
       <Card>
         <CardHeader>
           <CardTitle>
@@ -34,6 +34,6 @@ export default async function StatusPage() {
           <DatabaseStatus result={result} />
         </CardContent>
       </Card>
-    </main>
+    </div>
   )
 }

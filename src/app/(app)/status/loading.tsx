@@ -3,10 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function StatusLoading() {
   return (
-    <main
-      className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-4 py-8"
-      aria-busy="true"
-    >
+    <div className="mx-auto w-full max-w-xl" aria-busy="true">
       <Card>
         <CardHeader className="space-y-2">
           <Skeleton className="h-8 w-48" />
@@ -17,6 +14,6 @@ export default function StatusLoading() {
           <span className="sr-only">Verbindung wird geprüft …</span>
         </CardContent>
       </Card>
-    </main>
+    </div>
   )
 }

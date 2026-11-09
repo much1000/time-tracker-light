@@ -1,6 +1,6 @@
 # PROJ-11: Design-System-Basis
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -110,7 +110,7 @@
 | Reines Frontend, keine Datenbank | Es gibt keine Anwendungsdaten; die Theme-Wahl gehört zum Gerät | 2026-11-09 |
 | Theme-Wahl per `next-themes` (bereits installiert), gespeichert im Browser des Geräts | Verhindert Aufblitzen, folgt der Geräteeinstellung, kein neues Paket | 2026-11-09 |
 | Umschaltung Seitenleiste/Tab-Leiste allein per Stylesheet-Breakpoint (768 px) | Kein Flackern, kein Skript; Tablet bekommt die Seitenleiste wie in der Spec | 2026-11-09 |
-| shadcn-`Sidebar` wird nicht verwendet | Auf dem Handy öffnet sie sich als ausklappbares Menü, gewünscht ist aber eine feste Tab-Leiste; eigene Navigation aus Tailwind und vorhandenen Bausteinen, eine gemeinsame Eintragsliste | 2026-11-09 |
+| ~~shadcn-`Sidebar` wird nicht verwendet~~ **Geändert in `/frontend`:** Seitenleiste nutzt die shadcn-`Sidebar` (Modus «none», nur ab 768 px sichtbar); nur die Tab-Leiste am Handy ist eine eigene Komposition | Projektregel: Sidebar/Navigation nie selbst bauen. Die shadcn-Sidebar passt für den Laptop; für die feste Tab-Leiste am Handy gibt es keinen shadcn-Baustein. Beide lesen eine gemeinsame Eintragsliste | 2026-11-09 |
 | Route-Gruppe «App» für alle Seiten mit Navigation, Wurzel-Layout nur mit Schrift und Theme | Die Anmeldeseite (PROJ-2) braucht keine Navigation; die Adressen bleiben unverändert | 2026-11-09 |
 | Farben als Variablen für `:root` und `.dark`, zusätzliche Werte für «Erfolg» und gelben Button-Rand | shadcn-Bausteine übernehmen sie ohne Code-Eingriff; Werte stammen unverändert aus dem Design-System | 2026-11-09 |
 | Inter über die Next.js-Schriftfunktion (beim Bauen geladen, selbst ausgeliefert) | Keine Anfragen an Google zur Laufzeit, kein zusätzliches Paket | 2026-11-09 |
@@ -189,6 +189,33 @@ Keine neuen Pakete nötig.
 - Die Logo-Datei in `docs/design/` ist nur 64 × 73 px gross. Für Navigation und Favicon reicht das. Eine grössere Fassung (ideal SVG) wäre für PROJ-10 (PWA-Icons in allen Grössen) sinnvoll.
 - Die Wortmarke «decs Data Analytics» wird nicht verwendet: weisser Hintergrund, hellgraue Schrift (ca. 1,9:1) und im dunklen Theme nicht brauchbar.
 - Das Würfel-Logo ist eine Marke und von der Kontrastpflicht für Text ausgenommen. Der Name daneben ist normaler Text mit vollem Kontrast.
+
+## Implementation Notes (Frontend)
+**Umgesetzt am 2026-11-09.**
+
+**Neu**
+- `src/app/(app)/layout.tsx`, `src/app/(app)/page.tsx`: Route-Gruppe «App» mit Rahmen; Platzhalter-Startseite. `/status` wurde in die Gruppe verschoben (Adresse unverändert).
+- `src/components/app-shell.tsx`, `app-sidebar.tsx`, `mobile-header.tsx`, `bottom-tab-bar.tsx`, `brand.tsx`, `theme-provider.tsx`, `theme-switch.tsx`
+- `src/lib/navigation.ts`: einzige Liste der Navigationseinträge plus Funktion für den aktiven Eintrag (mit Test).
+- `src/assets/logo-cube.png` (Würfel), `src/app/icon.png` (64 × 64, transparent) und `src/app/apple-icon.png` (180 × 180, dunkle Fläche, Würfel in Originalgrösse). Next.js bindet beide automatisch ein (BUG-2).
+
+**Geändert**
+- `globals.css`, `tailwind.config.ts`: Farben aus dem Design-System für Hell und Dunkel, neue Werte `primary-border`, `primary-hover`, `brand-text`, `success`; Fehlerfarbe `#C62828` bzw. `#FF8A80` (BUG-5); Schrift Inter; tabellarische Ziffern.
+- `layout.tsx`: Inter, Theme-Verwaltung (Standard «System»), Titel «Time Tracker Light», Viewport mit `viewport-fit=cover`.
+- `ui/button.tsx` (shadcn-Datei, bewusst angepasst): Primär mit Rand und Hover aus dem Design-System, Link-Variante in `brand-text` statt Gelb, Standardhöhe und Symbolgrösse 44 px.
+- `database-status.tsx`: Erfolgssymbol nutzt `success`. `status/page.tsx`, `status/loading.tsx`: eigenes `<main>` entfernt, der Rahmen liefert es.
+
+**Abweichungen und Hinweise**
+- Seitenleiste nutzt die shadcn-`Sidebar` (siehe Decision Log), nicht eine eigene.
+- Das Logo-Bild hat einen leeren Alternativtext, weil der Name als Text daneben steht. Sonst läse ein Screenreader den Namen doppelt.
+- Die Button-Variante `sm` (36 px) ist weiterhin kleiner als 44 px. Beim ersten Einsatz in einem Feature prüfen.
+- `checkbox` und `radio-group` (shadcn) nutzen Gelb als Rand, das auf Weiss nur 1,7:1 erreicht. Sie werden noch nirgends verwendet. Beim ersten Einsatz `border-input` verwenden.
+- Der Theme-Schalter ist ein Aufklappmenü mit den Optionen «System», «Hell», «Dunkel» (Auswahl per Punkt markiert).
+
+**Geprüft**
+- `npm test`: 24 von 24 grün (neu: Navigation, Tab-Leiste, Theme-Schalter), `npm run lint`: 0 Fehler, `npm run build`: grün.
+- Im Browser (Chrome, Produktionsbuild): Layout bei 375 und 1440 px, Hell und Dunkel, Schrift Inter, Favicon ohne 404, Theme-Wahl bleibt nach Neuladen erhalten, Navigationsflächen 48 bzw. 56 px hoch, kein horizontales Scrollen am Handy, «Zum Inhalt springen» ist das erste Tab-Ziel.
+- **Nicht geprüft** (für `/qa`): Playwright-E2E (die PROJ-1-Tests sind noch nicht gegen das neue Layout gelaufen), Tablet 768 px, Firefox und Safari, Kontrastmessung aller Farbpaare, Zoom 200 %.
 
 ## QA Test Results
 _To be added by /qa_

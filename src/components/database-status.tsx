@@ -13,7 +13,7 @@ export function DatabaseStatus({ result }: DatabaseStatusProps) {
     return (
       <Alert role="status">
         <CheckCircle2
-          className="h-4 w-4 !text-green-700 dark:!text-green-400"
+          className="h-4 w-4 !text-success"
           aria-hidden="true"
         />
         <AlertTitle>Datenbank erreichbar</AlertTitle>
