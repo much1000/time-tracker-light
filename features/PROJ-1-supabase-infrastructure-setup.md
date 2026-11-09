@@ -167,6 +167,25 @@ Gespeichert wird später in der Supabase-Datenbank (PostgreSQL). Die Anmeldedate
 - Dashboard-Schritte (manuell, erledigt am 2026-11-08): Konto angelegt (1 Nutzer, bestätigt), Registrierung abgeschaltet (`disable_signup: true` über die Auth-Einstellungen geprüft), E-Mail-Login aktiv. Die Redirect-URL `http://localhost:3000` kann nicht von außen geprüft werden und gilt als vom Nutzer eingetragen.
 - `npm run lint` war defekt (`next lint` gibt es in Next 16 nicht mehr). Behoben außerhalb des Feature-Umfangs: neue `eslint.config.mjs` (Flat Config mit `eslint-config-next`), Skript auf `eslint .` umgestellt, alte `.eslintrc.json` entfernt. Für die generierten shadcn-Komponenten in `src/components/ui` ist die Regel `react-hooks/purity` abgeschaltet. Verbleibend: 1 Warnung in `src/hooks/use-toast.ts` (Starter-Code).
 
+## Implementation Notes (Frontend, 2026-11-09)
+
+**Gebaut:**
+- `src/app/status/page.tsx`: Seite `/status` (Server-Komponente, bei jedem Aufruf frisch). Ruft `checkDatabase()` auf und zeigt das Ergebnis in einer Card.
+- `src/app/status/loading.tsx`: Ladezustand mit Skeleton und Hinweis für Screenreader.
+- `src/components/database-status.tsx`: zeigt die drei Zustände «Datenbank erreichbar», «Datenbank nicht erreichbar. Ist das Supabase-Projekt pausiert?» und «Konfiguration unvollständig» mit den Variablennamen. Jeder Zustand hat Symbol und Text, nicht nur Farbe. Nutzt die shadcn-Komponenten Alert, Card und Skeleton. Keine neuen UI-Komponenten installiert.
+- `src/components/database-status.test.tsx`: 3 Tests (alle drei Zustände).
+- `src/app/layout.tsx`: `lang` von `en` auf `de` gesetzt, da die Oberfläche deutsch ist.
+
+**Abweichungen / Hinweise:**
+- Das Theme (Farben, Schrift Inter, Hell-/Dunkelmodus, Logo, Navigation) wird erst in PROJ-11 umgesetzt. Die Statusseite nutzt bis dahin die Standard-Farben von shadcn/ui. Die Fehlerfarbe der Standard-Theme-Variable erreicht den Kontrast aus dem Design-System (4,5 : 1) möglicherweise nicht. Das wird mit PROJ-11 korrigiert und in `/qa` geprüft.
+- Die Seite ist öffentlich erreichbar und zeigt nur den Zustand und Variablennamen, nie Werte. Soll sie nach PROJ-2 hinter dem Login liegen, ist das dort zu entscheiden.
+- Die Startseite (`/`) ist weiterhin die Starter-Seite. Sie wird durch PROJ-11 und die späteren Features ersetzt.
+
+**Geprüft:**
+- `npm test`: 13 von 13 grün. `npx tsc --noEmit`: keine Fehler. `npm run lint`: 0 Fehler, 1 Warnung (Starter-Code). `npm run build`: erfolgreich, `/status` ist dynamisch.
+- Produktivserver lokal gestartet: `/status` antwortet mit HTTP 200 und zeigt «Datenbank erreichbar» gegen das echte Supabase-Projekt.
+- Noch nicht geprüft: Aussehen im Browser (Mobil 375 px, Tablet, Desktop) und die Fehlerzustände mit absichtlich falscher Konfiguration. Das gehört in `/qa`.
+
 ## QA Test Results
 _To be added by /qa_
 
