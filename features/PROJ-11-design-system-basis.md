@@ -1,6 +1,6 @@
 # PROJ-11: Design-System-Basis
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -87,7 +87,8 @@
 
 ## Open Questions
 - [ ] Steht der Eintrag «Status» dauerhaft in der Hauptnavigation oder wandert er später in die Einstellungen? (Entscheid in PROJ-2, siehe BUG-6)
-- [ ] Welches Logo erscheint wo: Wortmarke in der Seitenleiste und Würfel in der mobilen Kopfzeile? (Vorschlag, in `/architecture` bestätigen; die PNG-Dateien müssen ggf. für dunklen Hintergrund geprüft werden.)
+- [x] ~~Welches Logo erscheint wo?~~ Entschieden in `/architecture`: überall nur der Würfel plus Name als Text, die Wortmarke entfällt.
+- [ ] Grössere Fassung des Würfels (ideal SVG) für scharfe Handy- und PWA-Icons nachliefern (spätestens für PROJ-10).
 
 ## Decision Log
 
@@ -106,13 +107,88 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _Wird von `/architecture` ergänzt_ | | |
+| Reines Frontend, keine Datenbank | Es gibt keine Anwendungsdaten; die Theme-Wahl gehört zum Gerät | 2026-11-09 |
+| Theme-Wahl per `next-themes` (bereits installiert), gespeichert im Browser des Geräts | Verhindert Aufblitzen, folgt der Geräteeinstellung, kein neues Paket | 2026-11-09 |
+| Umschaltung Seitenleiste/Tab-Leiste allein per Stylesheet-Breakpoint (768 px) | Kein Flackern, kein Skript; Tablet bekommt die Seitenleiste wie in der Spec | 2026-11-09 |
+| shadcn-`Sidebar` wird nicht verwendet | Auf dem Handy öffnet sie sich als ausklappbares Menü, gewünscht ist aber eine feste Tab-Leiste; eigene Navigation aus Tailwind und vorhandenen Bausteinen, eine gemeinsame Eintragsliste | 2026-11-09 |
+| Route-Gruppe «App» für alle Seiten mit Navigation, Wurzel-Layout nur mit Schrift und Theme | Die Anmeldeseite (PROJ-2) braucht keine Navigation; die Adressen bleiben unverändert | 2026-11-09 |
+| Farben als Variablen für `:root` und `.dark`, zusätzliche Werte für «Erfolg» und gelben Button-Rand | shadcn-Bausteine übernehmen sie ohne Code-Eingriff; Werte stammen unverändert aus dem Design-System | 2026-11-09 |
+| Inter über die Next.js-Schriftfunktion (beim Bauen geladen, selbst ausgeliefert) | Keine Anfragen an Google zur Laufzeit, kein zusätzliches Paket | 2026-11-09 |
+| Nur Würfel als Logo, Name als Text; Wortmarke nicht verwendet | Wortmarke hat weissen Hintergrund und rund 1,9:1 Kontrast; Würfel genügt für Navigation und Favicon | 2026-11-09 |
+| Handy-Symbol: Würfel auf dunkler quadratischer Fläche, nicht hochskaliert | Quelldatei nur 64 × 73 px; grössere Fassung später für PROJ-10 | 2026-11-09 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Backend nötig?
+Nein. PROJ-11 ist reines Frontend. Es gibt keine neuen Tabellen, keine API und keine Datenbankabfragen. Einzige gespeicherte Information ist die Theme-Wahl im Browser des jeweiligen Geräts.
+
+### A) Seitenstruktur
+```
+Wurzel-Layout (für alle Seiten)
++-- Schrift Inter (von der App selbst ausgeliefert)
++-- Theme-Verwaltung (System / Hell / Dunkel, merkt sich die Wahl)
++-- Seitentitel «Time Tracker Light», Favicon, Handy-Symbol
+
+Bereich «App» (alle Seiten mit Navigation: Start, Status, später alle weiteren)
++-- Link «Zum Inhalt springen» (erstes Element für Tastaturnutzer)
++-- Seitenleiste (ab Tablet-Breite, 768 px)
+|   +-- Würfel-Logo + Name «Time Tracker Light»
+|   +-- Navigationseinträge: Start, Status
+|   +-- Theme-Schalter (unten)
++-- Kopfzeile (nur Handy)
+|   +-- Würfel-Logo + Name
+|   +-- Theme-Schalter
++-- Inhaltsbereich (hier erscheint die jeweilige Seite)
++-- Tab-Leiste (nur Handy, unten fest)
+    +-- Navigationseinträge: Start, Status
+
+Seiten
++-- Start (/)    Willkommenstext, Link zur Statusseite
++-- Status (/status)  bestehende Seite, übernimmt Theme und Layout
+```
+
+Künftige Seiten ohne Navigation (die Anmeldeseite aus PROJ-2) liegen ausserhalb des Bereichs «App» und bekommen nur Schrift und Theme.
+
+### B) Verwendete Bausteine
+- **Theme-Schalter:** das vorhandene Aufklappmenü von shadcn/ui, mit den drei Optionen und einem Haken bei der aktiven.
+- **Navigation:** Seitenleiste und Tab-Leiste werden aus Tailwind und den vorhandenen Bausteinen zusammengesetzt. Beide lesen **dieselbe Liste** von Einträgen. Ein neues Feature trägt sich an einer einzigen Stelle ein, und beide Ansichten zeigen es.
+- **Symbole:** lucide-react (Haus für Start, Aktivität für Status), jeweils zusammen mit dem Text.
+- **Bestehendes:** Die Statusseite und ihre Meldungen (`database-status`) bleiben, bekommen aber die neuen Farben automatisch.
+
+### C) Daten
+Es gibt keine Anwendungsdaten. Gespeichert wird nur:
+- die Theme-Wahl («System», «Hell» oder «Dunkel») im Browser des Geräts, ohne Server und ohne Konto.
+
+Fehlt dieser Wert (neues Gerät, Browserdaten gelöscht), gilt «System».
+
+### D) Wie die wichtigsten Anforderungen erfüllt werden
+- **Navigation je nach Gerät:** Bei 768 px Breite und mehr gilt die Seitenleiste, darunter Kopfzeile plus Tab-Leiste. Die Umschaltung macht allein das Stylesheet, nicht ein Skript. Es gibt also kein Flackern und keinen Sprung beim Drehen des Handys.
+- **Aktiver Eintrag:** Er wird aus der aktuellen Adresse bestimmt und mit Fettschrift, Balken und Hintergrund markiert (nie nur Farbe).
+- **Kein Aufblitzen beim Theme:** Die Theme-Verwaltung setzt das richtige Theme, bevor die Seite sichtbar wird. Ohne JavaScript folgt die Seite der Geräteeinstellung.
+- **Farben:** Alle Werte aus `docs/design-system.md` werden einmalig als Farbvariablen für Hell und Dunkel hinterlegt. Die vorhandenen shadcn-Bausteine übernehmen sie ohne Eingriff in ihren Code. Neu dazu kommen ein Farbwert für «Erfolg» und für die Randfarbe des gelben Buttons im hellen Theme. Die Fehlerfarbe wechselt auf `#C62828` (hell) bzw. `#FF8A80` (dunkel). Damit ist BUG-5 behoben.
+- **Schrift:** Inter wird beim Bauen der App geladen und von der eigenen Domain ausgeliefert, nicht von Google. Fällt die Schrift aus, greift `system-ui`. Tabellarische Ziffern gelten global.
+- **Logo und Favicon:** Es wird nur der Würfel verwendet, daneben steht der Name als Text. Das Favicon und das Handy-Symbol werden aus dem Würfel erzeugt und von Next.js automatisch eingebunden, womit BUG-2 behoben ist. Das Handy-Symbol bekommt eine dunkle quadratische Fläche, damit der kleine Würfel nicht unscharf hochgezogen wird.
+- **Handy-Besonderheiten:** Die Tab-Leiste berücksichtigt den Systembereich unten (Home-Indikator), und der Inhalt hat unten so viel Abstand, dass nichts verdeckt wird.
+- **Tastatur:** Sichtbarer Fokusring in Theme-Farbe, Link «Zum Inhalt springen», Theme-Menü per Tastatur bedienbar.
+
+### E) Tests
+- **Unit (Vitest):** Navigationsliste markiert den passenden Eintrag als aktiv; Theme-Schalter bietet drei Optionen und markiert die aktive.
+- **E2E (Playwright, bei `/qa`):** Layout bei 375, 768 und 1440 px, Theme-Wahl bleibt nach Neuladen erhalten, kein 404 beim Favicon, bestehende `/status`-Tests laufen weiter.
+- **Kontrast:** In `/qa` werden die Farbpaare beider Themes gegen die Werte im Design-System gemessen.
+
+### F) Abhängigkeiten
+Keine neuen Pakete nötig.
+- `next-themes` (schon installiert): Theme-Wahl und Speicherung
+- `lucide-react` (schon installiert): Symbole
+- Schrift Inter über die in Next.js enthaltene Schriftfunktion
+
+### G) Hinweise für die Umsetzung
+- Die Logo-Datei in `docs/design/` ist nur 64 × 73 px gross. Für Navigation und Favicon reicht das. Eine grössere Fassung (ideal SVG) wäre für PROJ-10 (PWA-Icons in allen Grössen) sinnvoll.
+- Die Wortmarke «decs Data Analytics» wird nicht verwendet: weisser Hintergrund, hellgraue Schrift (ca. 1,9:1) und im dunklen Theme nicht brauchbar.
+- Das Würfel-Logo ist eine Marke und von der Kontrastpflicht für Text ausgenommen. Der Name daneben ist normaler Text mit vollem Kontrast.
 
 ## QA Test Results
 _To be added by /qa_
