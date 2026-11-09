@@ -23,18 +23,19 @@ export function AppShell({ children }: AppShellProps) {
         <div className="sticky top-0 hidden md:block">
           <AppSidebar />
         </div>
-        <SidebarInset>
+        <div className="flex min-w-0 flex-1 flex-col">
           <MobileHeader />
-          {/* Unten Platz für die Tab-Leiste (3.5 rem) plus Systembereich. */}
-          <main
+          {/* SidebarInset ist selbst das einzige <main>. Kopfzeile und Tab-Leiste liegen ausserhalb.
+              Unten Platz für die Tab-Leiste (3.5 rem) plus Systembereich. */}
+          <SidebarInset
             id="main-content"
             tabIndex={-1}
-            className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] focus:outline-none md:px-8 md:py-10 md:pb-10"
+            className="mx-auto max-w-3xl px-4 py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] focus:outline-none md:px-8 md:py-10 md:pb-10"
           >
             {children}
-          </main>
+          </SidebarInset>
           <BottomTabBar />
-        </SidebarInset>
+        </div>
       </SidebarProvider>
     </>
   )

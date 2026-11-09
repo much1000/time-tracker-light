@@ -1,6 +1,6 @@
 # PROJ-11: Design-System-Basis
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -218,7 +218,126 @@ Keine neuen Pakete nötig.
 - **Nicht geprüft** (für `/qa`): Playwright-E2E (die PROJ-1-Tests sind noch nicht gegen das neue Layout gelaufen), Tablet 768 px, Firefox und Safari, Kontrastmessung aller Farbpaare, Zoom 200 %.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-09
+**App URL:** http://localhost:3100 (Produktionsbuild, `next start`; Chrome)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### Navigation und Layout (7 Kriterien)
+- [x] Handy (375 px): feste Tab-Leiste unten (Start, Status), Kopfzeile mit Logo und Theme-Schalter, keine Seitenleiste
+- [x] Tablet (768 px) und Laptop (1440 px): Seitenleiste mit Logo, Einträgen und Theme-Schalter, keine Tab-Leiste und keine Kopfzeile
+- [x] Klick auf einen Eintrag öffnet die Seite, die Navigation bleibt bestehen (Marker am Rahmen überlebt den Wechsel)
+- [x] Aktiver Eintrag: `aria-current`, Fettschrift und Balken, in Seitenleiste und Tab-Leiste
+- [x] Navigationsflächen mindestens 44 × 44 px (gemessen: Seitenleiste 239 × 48, Tab-Leiste 188 × 56, Theme-Knöpfe ≥ 44)
+- [x] Tab-Leiste bleibt beim Scrollen unten (`position: fixed`) und verdeckt am Seitenende nichts
+- [x] Tastatur: «Zum Inhalt springen» ist erstes Tab-Ziel und setzt den Fokus auf den Inhalt, Einträge haben sichtbaren Fokus
+
+#### Startseite (1)
+- [x] `/` zeigt Logo, Willkommenstext und Link zum Status; keine Starter-Seite, kein «Next.js»-Text
+
+#### Theme (6)
+- [x] Standard «System» folgt der Geräteeinstellung (dunkel und hell)
+- [x] Theme-Schalter bietet System, Hell, Dunkel, markiert die aktuelle Wahl (`aria-checked`), per Tastatur bedienbar (Öffnen, Pfeile, Enter/Leertaste)
+- [x] Wahl «Dunkel» bleibt nach Neuladen und auf anderen Seiten erhalten, auch bei hellem Gerät
+- [x] Kein Aufblitzen: Die Klasse wird gesetzt, solange das Dokument noch lädt, und nie «light» zwischendurch
+- [x] Auf «System» wechselt die App live mit der Geräteeinstellung
+- [x] `/status` ist im dunklen Theme dunkel (BUG-5 aus PROJ-1 behoben)
+
+#### Farben, Schrift, Kontrast (5)
+- [x] Farbwerte entsprechen dem Design-System (Abweichung höchstens 1 Stufe je Kanal durch HSL-Rundung, z. B. dunkler Hintergrund rgb(23,25,28) statt rgb(22,24,27)); Kontrast aller 11 Paare in beiden Themes ≥ 4,5:1 (Text) bzw. ≥ 3:1 (Eingabefeld-Rand)
+- [x] Fehlerfarbe erreicht in beiden Themes ≥ 4,5:1 (BUG-5 aus PROJ-1 behoben); Symbol und Text kommen aus `database-status` (Unit-Tests)
+- [x] Primär-Button im hellen Theme: gelbe Fläche, dunkle Schrift, Rand `#7A5C00` (nur über Farbwerte und Button-Klassen geprüft: Es gibt noch keinen Primär-Button in der App)
+- [x] Schrift Inter mit `system-ui`-Ausweichschrift, tabellarische Ziffern, Schrift wird geladen
+- [x] Keine Anfragen an Drittdienste (auch keine Schriftdienste)
+
+#### Logo, Favicon, Titel (4)
+- [x] Favicon eingebunden, `/icon.png` liefert 200 `image/png` (BUG-2 aus PROJ-1 behoben), kein Konsolenfehler beim Laden
+- [x] Apple-Touch-Icon eingebunden und erreichbar (auf einem echten iPhone nicht angesehen)
+- [x] Titel «Time Tracker Light» und «Status · Time Tracker Light»
+- [x] Logo im dunklen Theme sichtbar und geladen. Hinweis: Das Bild hat bewusst einen leeren Alternativtext, der Name steht als Text daneben (siehe Implementation Notes); das ist enger gefasst als der Wortlaut «hat einen Alternativtext»
+
+#### Bestehende Funktionen (1)
+- [x] Alle 7 E2E-Tests und 13 Unit-Tests aus PROJ-1 laufen weiter, `/status` zeigt «Datenbank erreichbar». Angepasst wurde nur der Konsolentest: Die Ausnahme für das Favicon (BUG-2) ist entfallen.
+
+### Edge Cases Status
+- [x] Gelöschter Browserspeicher: Theme fällt auf «System» zurück
+- [ ] BUG-1: Ohne JavaScript folgt die Seite nicht der Geräteeinstellung (siehe unten); Navigation per Link funktioniert
+- [x] Fenstergrösse ändern (Desktop ↔ Handy): aktive Seite und aktiver Eintrag bleiben
+- [x] 320 px Breite: nichts läuft über, Beschriftungen nicht abgeschnitten
+- [x] Home-Indikator: `viewport-fit=cover` gesetzt, Tab-Leiste mit `safe-area-inset-bottom` (auf echtem Gerät nicht geprüft)
+- [x] Inter nicht ladbar: `system-ui` steht in der Schriftliste (Ausfall selbst nicht simuliert)
+- [x] Logo lädt nicht: Name steht als Text daneben, Navigation bleibt nutzbar (Ausfall nicht simuliert)
+- [x] Zoom 200 % (≈ 720 px Breite): Navigation bedienbar
+- [ ] BUG-3: Unbekannte Seite zeigt Next.js-Standard-404 ohne eigenes Theme
+
+### Security Audit Results
+- [x] Keine Authentifizierung in diesem Feature (kommt mit PROJ-2); es gibt keine Eingabefelder und keine API
+- [x] Manipulierter Theme-Wert (`<script>…`, 5000 Zeichen): keine Skriptausführung, Seite bleibt benutzbar
+- [x] Weder Service-Role-Schlüssel noch Tokens in HTML oder Skripten von `/` und `/status`
+- [x] Keine Cookies für die Theme-Wahl, keine Anfragen an Dritte
+- [ ] BUG-4: Theme-Wert mit Leerzeichen im Browserspeicher legt die Seite lahm (nur durch Eingriff in den eigenen Speicher erreichbar)
+- Offen aus PROJ-1: Sicherheits-Header (BUG-4 dort) bleiben für `/deploy`.
+
+### Bugs Found
+
+#### BUG-1: Ohne JavaScript erscheint immer das helle Theme
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. JavaScript im Browser deaktivieren, Gerät auf dunkel stellen
+  2. `/` öffnen
+  3. Erwartet (Spec, Edge Case): dunkles Theme nach Geräteeinstellung
+  4. Tatsächlich: helles Theme, weil das Dunkel-Theme an eine Klasse gebunden ist, die ein Skript setzt
+- **Priority:** Nice to have (die App braucht JavaScript ohnehin für alles Wesentliche)
+- **Test:** `test.fail` in `tests/PROJ-11-design-system-basis.spec.ts`
+
+#### BUG-2: Zwei verschachtelte `<main>`-Bereiche — **behoben am 2026-11-09**
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Eine beliebige Seite öffnen, im DOM nach `main` suchen
+  2. Erwartet: genau ein Hauptbereich
+  3. Tatsächlich: Die shadcn-Komponente `SidebarInset` ist selbst ein `<main>` und umschliesst Kopfzeile, Inhalt und Tab-Leiste. Darin liegt unser `<main id="main-content">`. Verschachtelte Hauptbereiche sind ungültiges HTML, Screenreader melden zwei Hauptbereiche, Kopfzeile und Tab-Leiste liegen im Hauptbereich.
+- **Hinweis zur Behebung:** `SidebarInset` mit `asChild` auf ein `div` setzen oder das innere `<main>` durch ein `div` ersetzen und die Kopfzeile ausserhalb halten.
+- **Behebung:** `SidebarInset` ist jetzt das einzige `<main>` (trägt `id="main-content"`), Kopfzeile und Tab-Leiste liegen daneben in einer Spalte, das innere `<main>` entfällt. Der Test ist jetzt ein normaler Test und grün.
+- **Priority:** Fix before deployment (Ziel ist WCAG AA)
+
+#### BUG-3: Unbekannte Seite folgt nicht dem gewählten Theme
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Gerät auf dunkel, `/gibt-es-nicht` öffnen
+  2. Erwartet (Spec): Standardfehlerseite im neuen Theme
+  3. Tatsächlich: Next.js-Standard-404 mit festem Schwarz/Weiss (rgb(0,0,0) statt `#16181B`), ohne Navigation. Wählt jemand «Hell» bei dunklem Gerät, bleibt die 404-Seite dunkel.
+- **Priority:** Fix in next sprint (eigene `not-found`-Seite, eventuell mit PROJ-2)
+- **Test:** `test.fail` «Unbekannte Seite zeigt eine Fehlerseite im aktuellen Theme»
+
+#### BUG-4: Beschädigter Theme-Wert im Browserspeicher legt die Seite lahm
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. In den Entwicklerwerkzeugen `localStorage.theme = 'x y'` setzen
+  2. Seite neu laden
+  3. Erwartet: Fallback auf «System», Seite normal
+  4. Tatsächlich: Das Theme-Skript wirft `Failed to execute 'add' on 'DOMTokenList'`, es erscheint kein Inhalt. Behebung nur durch Löschen der Browserdaten. Ohne Leerzeichen (z. B. 5000 Zeichen, `<script>`) funktioniert alles.
+- **Priority:** Nice to have (nur durch absichtlichen Eingriff erreichbar; die App schreibt nur «system», «light», «dark»)
+- **Test:** `test.fail` «Manipulierter Theme-Wert mit Leerzeichen legt die Seite nicht lahm»
+
+### Nicht geprüft
+- **Firefox und Safari:** Die Browser-Downloads von Playwright sind auf diesem Rechner blockiert (veraltete Sperre `ms-playwright/__dirlock` von einem früheren, abgebrochenen Download). Nur Chrome wurde getestet.
+- Tablet-Breite (768 px) wurde per Test, nicht per Sichtprüfung kontrolliert.
+- Echte Geräte: Apple-Touch-Icon auf dem iPhone und Verhalten rund um den Home-Indikator.
+- Der dunkle Theme-Zustand von Fehlermeldungen (`config-error`, `unreachable`) in `/status` wurde nur über Farbwerte und Unit-Tests, nicht im Browser erzeugt.
+
+### Tests
+- **Unit (Vitest):** 24 von 24 grün (neu aus `/frontend`: Navigation, Tab-Leiste, Theme-Schalter)
+- **E2E (Playwright, Chrome):** `tests/PROJ-11-design-system-basis.spec.ts` mit 39 Tests; 3 davon sind als bekannte Lücken markiert (`test.fail`, entsprechen BUG-1, BUG-3, BUG-4). Gesamtlauf mit PROJ-1: 46 Tests, nach dem Fix von BUG-2 230 von 230 bei 5-facher Wiederholung stabil.
+- `npm run lint`: 0 Fehler (1 bekannte Warnung in `use-toast.ts`), `tsc`: sauber, Produktionsbuild grün.
+
+### Summary
+- **Acceptance Criteria:** 24/24 erfüllt (zwei mit Hinweis: Alternativtext des Logos, Primär-Button nur über Farbwerte geprüft)
+- **Bugs Found:** 4 total (0 critical, 0 high, 1 medium, 3 low); BUG-2 (medium) ist behoben, offen sind 3 niedrige
+- **Security:** Keine Probleme in diesem Feature gefunden (BUG-4 nur durch Eingriff in den eigenen Browserspeicher erreichbar)
+- **Production Ready:** YES (keine kritischen oder hohen Fehler)
+- **Recommendation:** Deploy; BUG-3 mit PROJ-2 angehen, Firefox/Safari bei Gelegenheit nachprüfen
 
 ## Deployment
 _To be added by /deploy_

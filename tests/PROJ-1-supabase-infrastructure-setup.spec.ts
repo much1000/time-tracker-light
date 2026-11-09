@@ -43,8 +43,6 @@ test.describe('PROJ-1: Seite /status', () => {
     const errors: string[] = []
     page.on('console', (message) => {
       if (message.type() !== 'error') return
-      // Bekannter Fehler BUG-2 (fehlendes Favicon) wird hier bewusst ausgeklammert und bis PROJ-11 getrennt geführt.
-      if (message.location().url.endsWith('/favicon.ico')) return
       errors.push(message.text())
     })
     page.on('pageerror', (error) => errors.push(error.message))
