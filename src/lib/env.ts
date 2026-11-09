@@ -9,9 +9,11 @@ const supabaseEnvSchema = z.object({
     .string({ error: 'fehlt' })
     .min(1, 'fehlt'),
   // Darf nie existieren: Ein NEXT_PUBLIC_-Präfix würde den Vollzugriffs-Schlüssel an den Browser ausliefern.
-  NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: z.undefined({
-    error: 'darf nicht gesetzt sein (Service-Role-Schlüssel gehört nie in den Browser)',
-  }),
+  NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: z
+    .undefined({
+      error: 'darf nicht gesetzt sein (Service-Role-Schlüssel gehört nie in den Browser)',
+    })
+    .optional(),
 })
 
 export type SupabaseEnv = {
