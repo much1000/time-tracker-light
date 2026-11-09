@@ -17,7 +17,7 @@
 |----|---------|--------|------|---------|
 | PROJ-1 | Supabase Infrastructure Setup — Projekt, Umgebungsvariablen, Schema-Entwurf, Auth-Konfiguration (P0, Abhängigkeiten: –) | Deployed | [PROJ-1](PROJ-1-supabase-infrastructure-setup.md) | 2026-11-08 |
 | PROJ-11 | Design-System-Basis — Theme, Hell-/Dunkelmodus, Navigation und Logo, App-Layout (P0, Abhängigkeiten: PROJ-1) | Deployed | [PROJ-11](PROJ-11-design-system-basis.md) | 2026-11-08 |
-| PROJ-2 | Anmeldung — E-Mail und Passwort, Einzelnutzer, geschützte Seiten (P0, Abhängigkeiten: PROJ-1) | Roadmap | – | 2026-11-08 |
+| PROJ-2 | Anmeldung — E-Mail und Passwort, Einzelnutzer, geschützte Seiten (P0, Abhängigkeiten: PROJ-1) | Architected | [PROJ-2](PROJ-2-anmeldung.md) | 2026-11-08 |
 | PROJ-3 | Kunden- und Projektverwaltung — anlegen, bearbeiten, archivieren (P0, Abhängigkeiten: PROJ-1, PROJ-2) | Roadmap | – | 2026-11-08 |
 | PROJ-4 | Manuelle Zeiterfassung inkl. Nacherfassung — Datum, von–bis oder Dauer, Beschreibung, verrechenbare Stunden (P0, Abhängigkeiten: PROJ-3) | Roadmap | – | 2026-11-08 |
 | PROJ-5 | Zeiten prüfen und korrigieren — Liste, bearbeiten, löschen (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |
