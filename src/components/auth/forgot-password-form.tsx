@@ -47,7 +47,7 @@ export function ForgotPasswordForm({ linkInvalid = false }: ForgotPasswordFormPr
       const supabase = createClient()
       const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
         // Der Link in der Mail führt auf unsere Seite, die ihn einlöst (siehe Tech Design).
-        redirectTo: `${window.location.origin}/auth/bestaetigen?next=/passwort-neu`,
+        redirectTo: `${window.location.origin}/auth/bestaetigen`,
       })
       if (error) throw error
       setSent(true)
@@ -66,6 +66,11 @@ export function ForgotPasswordForm({ linkInvalid = false }: ForgotPasswordFormPr
     return (
       <div className="space-y-4">
         <AuthNotice tone="success">{SENT_MESSAGE}</AuthNotice>
+        {/* Die Standardvorlage von Supabase bindet den Link an den Browser. */}
+        <p className="text-sm text-muted-foreground">
+          Öffne den Link im selben Browser, in dem du ihn angefordert hast. Die E-Mail
+          kann englisch sein und im Spam-Ordner liegen.
+        </p>
         <p className="text-center">
           <Button asChild variant="link">
             <Link href="/login">Zurück zur Anmeldung</Link>

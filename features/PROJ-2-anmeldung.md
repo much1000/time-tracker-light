@@ -81,7 +81,7 @@
 - **Zurück-Taste nach dem Anmelden:** Sie führt nicht wieder auf die Anmeldeseite, sondern bleibt in der App.
 - **E-Mail mit Gross- und Kleinbuchstaben oder Leerzeichen am Ende:** Die Anmeldung funktioniert trotzdem (Gross-/Kleinschreibung egal, Leerzeichen werden entfernt).
 - **Passwort mit Sonderzeichen oder sehr lang (z. B. 200 Zeichen):** Wird akzeptiert und nicht abgeschnitten.
-- **Reset-Link auf einem anderen Gerät geöffnet als angefordert:** Funktioniert, das neue Passwort gilt für das Konto.
+- **Reset-Link in einem anderen Browser oder auf einem anderen Gerät geöffnet als angefordert:** Mit der Standardvorlage von Supabase (Free-Plan) funktioniert das nicht. Es erscheint «Dieser Link ist nicht mehr gültig» mit dem Formular für einen neuen Link. Unter der Bestätigung steht der Hinweis, den Link im selben Browser zu öffnen. (Geändert in `/backend` am 2026-11-10, siehe Decision Log. Mit eigenem SMTP-Server und angepasster Vorlage würde es auch geräteübergreifend funktionieren.)
 - **Mehrfach «Passwort vergessen» in kurzer Zeit:** Die Begrenzung von Supabase greift, die App zeigt «Zu viele Versuche. Bitte warte ein paar Minuten.»
 - **Fehlende oder falsche Konfiguration (Umgebungsvariablen):** Statt Absturz erscheint eine verständliche Meldung auf der Anmeldeseite.
 - **Anmeldeseite im dunklen Theme und bei 320 px Breite:** Nichts läuft über, alles bleibt lesbar und bedienbar.
@@ -96,7 +96,8 @@
 ## Open Questions
 - [ ] **Mindestlänge des Passworts (10 Zeichen, bestätigt)** muss auch in Supabase unter Authentication → Providers → Email eingestellt werden (Dashboard-Schritt für dich; wird in `/architecture` als Checkliste festgehalten).
 - [ ] **Redirect-URLs in Supabase:** `http://localhost:3000` und `https://time-tracker-light.vercel.app` müssen eingetragen sein (laut `/deploy` offen bzw. unklar, ob erledigt).
-- [ ] **E-Mail-Vorlage für «Passwort zurücksetzen»:** Standardtext von Supabase (englisch) oder deutscher Text? Vorschlag: Text in deutsch im Dashboard anpassen (Dashboard-Schritt, keine Code-Änderung).
+- [x] ~~E-Mail-Vorlage für «Passwort zurücksetzen» auf Deutsch anpassen~~ Entschieden in `/backend`: Auf dem Free-Plan ist die Vorlage nur mit eigenem SMTP-Server änderbar. Es bleibt bei der englischen Standardvorlage (siehe Decision Log).
+- [ ] **Eigener SMTP-Server später?** Bringt deutsche Vorlage, geräteübergreifenden Link und höheres Mail-Limit. Nur bei Bedarf (z. B. wenn Link-Scanner oder Browserwechsel auf dem Handy stören).
 - [ ] **Wie testet `/qa` die echte Anmeldung?** Vorschlag: Zugangsdaten für den Test kommen aus einer lokalen, nicht eingecheckten Datei (z. B. `.env.test.local`, in `.gitignore`), nur auf deinem Rechner. Ohne sie prüft `/qa` alle Abläufe ohne Login und überlässt dir die Handprüfung von Anmelden, Abmelden und Passwort-Reset. Entscheidung vor `/qa`.
 - [ ] **Abmelden-Knopf in der Kopfzeile am Handy:** Bei 320 px Breite könnte es mit Logo, Theme-Knopf und Abmelden-Knopf eng werden. Fällt es zu eng aus, werden Darstellung und Abmelden in ein gemeinsames Menü gelegt. Entscheidung in `/frontend`.
 - [ ] **E-Mail-Versand:** Supabase Free versendet mit eingeschränktem eigenem Dienst (wenige Mails pro Stunde, Absender von Supabase). Für ein Konto genügt das. Nachprüfen, dass die Mail nicht im Spam landet.
@@ -123,7 +124,7 @@
 |----------|-----------|------|
 | Türsteher-Schicht (`proxy.ts`, in Next.js 16 der Nachfolger von «Middleware») schützt alle Adressen ausser Bildern und Icons | Eine zentrale Stelle, auch für künftige Seiten; unbekannte Adressen werden ohne Login ebenfalls umgeleitet | 2026-11-09 |
 | Zusätzliche Prüfung im App-Rahmen auf dem Server | Zweite Verteidigungslinie; der Türsteher soll laut Next.js-Dokumentation nicht die einzige Absicherung sein | 2026-11-09 |
-| Reset-Mail verlinkt auf `/auth/bestaetigen` mit Einmal-Schlüssel (Token-Hash), nicht auf den Standard-Code-Austausch | Der Code-Austausch braucht den Browser, der die Mail angefordert hat; die Spec verlangt Funktion auf einem anderen Gerät | 2026-11-09 |
+| ~~Reset-Mail verlinkt mit Einmal-Schlüssel (Token-Hash) statt Standard-Code-Austausch~~ **Geändert in `/backend` (2026-11-10):** Der Einlöse-Punkt `/auth/bestaetigen` versteht den Code der Standardvorlage (`code`) und weiterhin den Einmal-Schlüssel (`token_hash` mit `type=recovery`) | Die Vorlage ist auf dem Free-Plan nur mit eigenem SMTP-Server änderbar, die Standardvorlage liefert einen Code, der nur im selben Browser einlösbar ist. Der Nutzer hat «Standardvorlage nutzen» gewählt. Der Einmal-Schlüssel-Weg bleibt für einen späteren eigenen SMTP-Server lauffähig. | 2026-11-10 |
 | Anmelden, Abmelden und Passwort setzen direkt aus dem Browser bei Supabase (`signInWithPassword`, `signOut`, `updateUser`), Weiterleitung per `window.location.href` | Projektregel für Supabase-Login; Supabase prüft Passwörter und begrenzt Versuche selbst | 2026-11-09 |
 | Der Türsteher erneuert die Sitzung bei jedem Aufruf (`@supabase/ssr`) und gibt geschützten Antworten `Cache-Control: no-store` | Dauerhaft angemeldet bleiben; Zurück-Taste nach dem Abmelden zeigt keinen geschützten Inhalt | 2026-11-09 |
 | Zieladresse nach dem Login nur akzeptieren, wenn sie mit genau einem «/» beginnt | Schutz vor Umleitung auf fremde Seiten (Open Redirect) | 2026-11-09 |
@@ -168,8 +169,8 @@ Wurzel-Layout (Schrift, Theme)
 ### C) Ablauf in Worten
 1. **Anmelden:** Das Formular prüft die Eingaben, schickt sie an Supabase und leitet bei Erfolg zur gemerkten Zielseite weiter (sonst `/`). Fehler werden in die drei vereinbarten Meldungen übersetzt (falsche Daten, zu viele Versuche, nicht erreichbar).
 2. **Dauerhaft angemeldet:** Die Anmeldung steckt in Cookies. Der Türsteher erneuert sie bei jedem Aufruf, deshalb bleibt sie auf dem Gerät bestehen, bis zum Abmelden.
-3. **Passwort vergessen:** Das Formular fordert bei Supabase die Mail an und zeigt immer dieselbe Bestätigung. Die Mail enthält einen Link auf unsere Seite `/auth/bestaetigen` mit einem Einmal-Schlüssel.
-4. **Link einlösen:** `/auth/bestaetigen` tauscht den Einmal-Schlüssel gegen eine Anmeldung und leitet auf `/passwort-neu`. Ist der Schlüssel abgelaufen oder schon benutzt, geht es zu `/passwort-vergessen` mit der Meldung «Dieser Link ist nicht mehr gültig».
+3. **Passwort vergessen:** Das Formular fordert bei Supabase die Mail an und zeigt immer dieselbe Bestätigung. Die Mail (Standardvorlage, englisch) enthält einen Link, der über Supabase auf unsere Seite `/auth/bestaetigen` mit einem Code führt.
+4. **Link einlösen:** `/auth/bestaetigen` tauscht den Code gegen eine Anmeldung und leitet auf `/passwort-neu`. Ist der Code abgelaufen, schon benutzt oder in einem anderen Browser geöffnet, geht es zu `/passwort-vergessen` mit der Meldung «Dieser Link ist nicht mehr gültig».
 5. **Neues Passwort:** Das Formular speichert das Passwort bei Supabase. Danach ist man angemeldet und landet auf `/`.
 6. **Abmelden:** Der Knopf beendet die Anmeldung auf diesem Gerät und leitet zur Anmeldeseite. Weil geschützte Seiten nicht zwischengespeichert werden, zeigt die Zurück-Taste danach keinen Inhalt.
 
@@ -181,7 +182,7 @@ Es werden keine neuen Anwendungsdaten gespeichert.
 
 ### E) Tech-Entscheidungen (mit Begründung)
 - **Türsteher vor allen Seiten statt Prüfung in jeder Seite:** Eine Stelle, an der alles geschützt wird, auch Seiten, die später dazukommen. Zusätzlich prüft der App-Rahmen die Anmeldung noch einmal auf dem Server, falls der Türsteher einmal umgangen würde.
-- **Einlösung der Reset-Mail über einen Einmal-Schlüssel statt über den Standard-«Code-Austausch»:** Der Standardweg funktioniert nur im selben Browser, in dem die Mail angefordert wurde. Die Spec verlangt aber, dass der Link auch auf einem anderen Gerät funktioniert (Mail am Laptop gelesen, Handy angemeldet).
+- **Einlösung der Reset-Mail: Standard-Code-Austausch (geändert in `/backend`):** Geplant war ein Einmal-Schlüssel, der auch auf einem anderen Gerät funktioniert. Das braucht eine angepasste E-Mail-Vorlage, und die ist auf dem Free-Plan nur mit eigenem SMTP-Server änderbar. Daher gilt die Standardvorlage: Der Link funktioniert nur im selben Browser, in dem er angefordert wurde. Der Einlöse-Punkt versteht beide Formen.
 - **Anmelden, Abmelden und Passwort setzen direkt aus dem Browser bei Supabase:** So verlangt es die Projektregel für Supabase-Anmeldung. Supabase prüft Passwörter und begrenzt Versuche selbst. Eigene Schnittstellen dafür wären doppelter Aufwand ohne Gewinn.
 - **Geschützte Seiten ohne Zwischenspeicher:** Der Browser darf sie nicht für die Zurück-Taste aufbewahren.
 - **Passwort-Mindestlänge in Supabase und in den Formularen:** Supabase ist die verbindliche Stelle, die Formulare geben nur früh einen Hinweis.
@@ -197,7 +198,7 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 2. **Adressen eintragen:** Authentication → URL Configuration.
    - **Site URL:** `https://time-tracker-light.vercel.app`
    - **Redirect URLs:** `http://localhost:3000/**` und `https://time-tracker-light.vercel.app/**`
-3. **E-Mail-Vorlage «Reset Password» anpassen:** Authentication → Email Templates. Der Text soll deutsch sein, und der Link muss auf `/auth/bestaetigen` zeigen und den Einmal-Schlüssel mitgeben. Den genauen Wortlaut der Vorlage liefert `/backend` fertig zum Einfügen. Damit funktioniert der Link lokal und auf Vercel.
+3. ~~E-Mail-Vorlage anpassen~~ Entfällt: Auf dem Free-Plan nur mit eigenem SMTP-Server änderbar (siehe Decision Log). Wichtig bleibt, dass die Redirect-URLs aus Schritt 2 stehen, sonst führt der Link in der Mail auf die falsche Adresse.
 4. **Spam-Prüfung:** Nach dem ersten Test prüfen, dass die Mail im Posteingang ankommt (die eingebaute Absenderadresse von Supabase landet manchmal im Spam). Auf Free sind nur wenige Mails pro Stunde erlaubt, für ein Konto genügt das.
 
 ### H) Tests
@@ -230,7 +231,7 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - Türsteher (`src/proxy.ts`): Seitenschutz, Umleitung mit `?next=`, angemeldete Nutzer von `/login` und `/passwort-vergessen` auf `/` leiten, Sitzung erneuern, `Cache-Control: no-store` für geschützte Seiten.
 - Einlöse-Punkt `/auth/bestaetigen` für den Link aus der Reset-Mail, mit Integrationstests.
 - Zweite Prüfung im App-Rahmen auf dem Server.
-- Fertiger deutscher Text der E-Mail-Vorlage «Reset Password» für das Dashboard.
+- ~~Fertiger deutscher Text der E-Mail-Vorlage~~ entfällt (Vorlage auf dem Free-Plan nicht änderbar).
 - `findLeaks` in den E2E-Tests beachtet nur den `anon`-Schlüssel; falls der Türsteher weitere Variablen braucht, dort ergänzen.
 
 **Geprüft**
@@ -239,6 +240,39 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - Im Browser: `/login`, `/passwort-vergessen` (mit Hinweis «Link nicht mehr gültig») bei 375 px hell und 1440 px dunkel, ohne Navigation, ohne horizontales Scrollen, Titel «Anmelden · Time Tracker Light» bzw. «Passwort zurücksetzen · Time Tracker Light», keine Konsolenfehler. Kopfzeile bei 320 px mit Theme- und Abmelden-Knopf ohne Überlauf.
 - Echter Fehlversuch gegen Supabase mit erfundenen Daten: Meldung «E-Mail oder Passwort stimmt nicht.», E-Mail bleibt stehen, Passwort leer, Fokus im Passwortfeld.
 - **Nicht geprüft:** erfolgreiche Anmeldung, Abmelden und Reset mit dem echten Konto (brauchen deine Zugangsdaten und den Türsteher), Firefox und Safari, Autofill durch einen echten Passwortmanager.
+
+## Implementation Notes (Backend)
+**Backend umgesetzt am 2026-11-10.** Es gibt keine Datenbank-Änderung (keine Tabellen, keine RLS-Regeln) und keine eigene Daten-Schnittstelle.
+
+**Neu**
+- `src/proxy.ts`: Türsteher vor allen Seiten ausser `_next/static`, `_next/image`, Icons und Bildern. Ruft `updateSession` auf.
+- `src/lib/supabase/session.ts` (`updateSession`): erneuert die Anmeldung bei jedem Aufruf (Cookies), prüft sie mit `getClaims()` und wendet die Entscheidung an. Bei Umleitungen gehen die erneuerten Cookies mit. Alle Antworten bekommen `Cache-Control: private, no-store`. Bei fehlender Konfiguration oder wenn Supabase nicht antwortet, gilt «nicht angemeldet» (geschützte Seiten bleiben zu, die Anmeldeseite zeigt den Grund).
+- `src/lib/auth/access.ts` (`decideAccess`): reine Entscheidungslogik.
+  - ohne Anmeldung: geschützte und unbekannte Adressen gehen auf `/login?next=…` (die Startseite ohne `next`); `/login`, `/passwort-vergessen` und `/auth/bestaetigen` sind erreichbar; `/passwort-neu` führt auf `/passwort-vergessen?fehler=link`
+  - mit Anmeldung: alles erreichbar, nur `/login` und `/passwort-vergessen` leiten auf `/`
+- `src/app/auth/bestaetigen/route.ts`: löst den Link aus der Reset-Mail ein. Nimmt entweder `code` (Standardvorlage, im selben Browser einlösbar) oder `token_hash` mit `type=recovery` (angepasste Vorlage), jeweils Zod-geprüft mit höchstens 512 Zeichen, tauscht ihn gegen eine Anmeldung und leitet auf `/passwort-neu`. Bei jedem Fehler (fehlend, falscher Typ, abgelaufen, benutzt, anderer Browser, Netzwerk, Konfiguration) geht es auf `/passwort-vergessen?fehler=link`. Das Ziel ist fest, eine Adresse aus dem Link wird nie übernommen.
+
+**Geändert**
+- `src/app/(app)/layout.tsx`: zweite Prüfung auf dem Server (`getClaims`), sonst Weiterleitung auf `/login`. Dadurch werden alle App-Seiten dynamisch gerendert (auch `/`).
+- `forgot-password-form.tsx`: Der Link in der Mail zeigt auf `…/auth/bestaetigen` ohne Zusatz (die frühere Angabe `?next=/passwort-neu` entfällt, weil das Ziel fest ist).
+
+**Dashboard-Schritte für dich (Supabase, manuell; Menünamen können abweichen)**
+1. **Passwort-Mindestlänge** auf 10 stellen (Authentication → Sign In / Providers → Email bzw. Passwort-Anforderungen).
+2. **URL Configuration:** Site URL `https://time-tracker-light.vercel.app`; Redirect URLs `http://localhost:3000/**` und `https://time-tracker-light.vercel.app/**`.
+3. **E-Mail-Vorlage:** Nicht änderbar (Free-Plan, nur mit eigenem SMTP-Server). Die Mail kommt englisch von Supabase («Reset your password»). Wichtig: Die Redirect-URLs aus Schritt 2 müssen stehen, sonst führt der Link auf die falsche Adresse.
+4. **Spam-Prüfung** nach dem ersten Test.
+
+**Risiken und Hinweise**
+- **Link nur im selben Browser:** Öffnet dein Mailprogramm den Link in einem anderen Browser (z. B. dem eingebauten), erscheint «Dieser Link ist nicht mehr gültig». Dann forderst du im gewünschten Browser einen neuen an. Unter der Bestätigung auf `/passwort-vergessen` steht der Hinweis.
+- **E-Mail-Programme, die Links vorab öffnen** (Sicherheitsprüfungen mancher Anbieter) können den Einmal-Link verbrauchen, bevor du ihn anklickst. Dann zeigt die Seite «Dieser Link ist nicht mehr gültig», und du forderst einen neuen an. Eine Zwischenseite mit Bestätigungsknopf würde das verhindern. Sie ist nicht gebaut, weil sie für ein Konto selten nötig ist. Tritt es auf, nachrüsten.
+- **Bestehende E2E-Tests:** Seit dem Seitenschutz leiten alle Tests für `/` und `/status` ohne Anmeldung auf `/login`. Die Suiten aus PROJ-1 und PROJ-11 brauchen für die geschützten Seiten eine echte Anmeldung. Das ist in `/qa` zu lösen (offene Frage zu den Testzugangsdaten).
+- **Nicht angemeldet und `/status`:** Es entsteht keine Datenbankanfrage mehr (der Türsteher leitet vorher um). BUG-6 aus PROJ-1 ist damit behoben.
+- **`/status` bei fehlender Konfiguration:** Ohne Anmeldung nicht mehr erreichbar. Der Grund erscheint auf der Anmeldeseite («Die App ist nicht vollständig eingerichtet»).
+
+**Geprüft**
+- `npm test`: 113 von 113 grün (neu: Zugriffsentscheidung 12, `updateSession` 9, Einlöse-Punkt 11, Rest wie vorher), `npm run lint`: 0 Fehler, `tsc` sauber, Produktionsbuild grün (der Türsteher erscheint als «Proxy»).
+- Gegen den Produktionsbuild ohne Anmeldung (`curl`): `/`, `/status`, unbekannte Adressen und Adressen mit Parametern → 307 auf `/login` mit `next`; `/login` und `/passwort-vergessen` → 200; `/passwort-neu` und `/auth/bestaetigen` (ohne oder mit falschem oder fremdem Schlüssel, falschem Typ) → 307 auf `/passwort-vergessen?fehler=link`; Icons → 200; Sicherheits-Header bleiben bei allen Antworten erhalten; geschützte Antworten tragen `Cache-Control: private, no-store`.
+- **Nicht geprüft:** Alles mit gültiger Anmeldung (Weiterleitung nach dem Login, Sitzung bleibt, Abmelden, Zurück-Taste, Reset-Link per echter Mail), weil das Zugangsdaten und das Dashboard brauchen.
 
 ## QA Test Results
 _To be added by /qa_

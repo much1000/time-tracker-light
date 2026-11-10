@@ -196,9 +196,10 @@ describe('ForgotPasswordForm', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent(SENT_MESSAGE)
     expect(resetPasswordForEmail).toHaveBeenCalledWith('a@b.ch', {
-      redirectTo: 'http://localhost/auth/bestaetigen?next=/passwort-neu',
+      redirectTo: 'http://localhost/auth/bestaetigen',
     })
     expect(screen.getByRole('link', { name: 'Zurück zur Anmeldung' })).toHaveAttribute('href', '/login')
+    expect(screen.getByText(/im selben Browser/)).toBeInTheDocument()
   })
 
   it('verrät nicht, ob eine Adresse existiert: gleiche Antwort auch bei «Nutzer unbekannt»', async () => {
