@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Brand } from '@/components/brand'
+import { LogoutButton } from '@/components/logout-button'
 import { ThemeSwitch } from '@/components/theme-switch'
 import {
   Sidebar,
@@ -49,8 +50,9 @@ export function AppSidebar() {
           </SidebarMenu>
         </nav>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="gap-2 p-4">
         <ThemeSwitch />
+        <LogoutButton />
       </SidebarFooter>
     </Sidebar>
   )

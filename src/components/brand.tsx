@@ -19,7 +19,9 @@ export function Brand({ className }: BrandProps) {
       )}
     >
       <Image src={logoCube} alt="" width={28} height={32} priority />
-      <span>Time Tracker Light</span>
+      {/* Unter 360 px nur für Screenreader sichtbar, damit die Kopfzeile mit den
+          zwei Knöpfen nicht überläuft. */}
+      <span className="max-[359px]:sr-only">Time Tracker Light</span>
     </Link>
   )
 }

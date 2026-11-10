@@ -8,6 +8,27 @@ const TABLET = { width: 768, height: 1024 }
 const DESKTOP = { width: 1440, height: 900 }
 
 // ---------- Hilfsfunktionen für Kontrastberechnung ----------
+// Prüft, ob ein Service-Role-Schlüssel oder ein Token ausgeliefert wird. Der Variablenname
+// NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY darf vorkommen (die Konfigurationsprüfung lehnt ihn ab),
+// ein Schlüssel mit Rolle «service_role» nicht. Der öffentliche anon-Schlüssel ist erlaubt.
+function findLeaks(text: string): string[] {
+  const leaks: string[] = []
+  if (/service_role/i.test(text.replaceAll('NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY', ''))) {
+    leaks.push('Text «service_role» ausserhalb des Variablennamens')
+  }
+  if (/sbp_[A-Za-z0-9]{20,}/.test(text)) leaks.push('Zugriffstoken sbp_…')
+  if (/sb_secret_[A-Za-z0-9_-]{16,}/.test(text)) leaks.push('Schlüssel sb_secret_…')
+  for (const match of text.matchAll(/eyJ[A-Za-z0-9_-]{10,}\.([A-Za-z0-9_-]{10,})\./g)) {
+    try {
+      const payload = JSON.parse(Buffer.from(match[1], 'base64url').toString())
+      if (payload.role && payload.role !== 'anon') leaks.push(`JWT mit Rolle ${payload.role}`)
+    } catch {
+      // kein JWT
+    }
+  }
+  return leaks
+}
+
 
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   s /= 100
@@ -600,9 +621,7 @@ test.describe('PROJ-11: Sicherheit', () => {
 
     const all = bodies.join('\n')
     expect(all.length).toBeGreaterThan(0)
-    expect(all).not.toMatch(/service_role/i)
-    expect(all).not.toMatch(/sbp_[A-Za-z0-9]{20,}/)
-    expect(all).not.toMatch(/sb_secret_/)
+    expect(findLeaks(all)).toEqual([])
   })
 
   test('Die Theme-Wahl liegt nur im Browser, es gehen keine Cookies oder Anfragen an Dritte raus', async ({ page }) => {

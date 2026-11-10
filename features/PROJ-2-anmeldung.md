@@ -1,8 +1,8 @@
 # PROJ-2: Anmeldung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09
+**Last Updated:** 2026-11-10
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Konto existiert, Registrierung ist abgeschaltet, E-Mail-Login ist aktiv
@@ -204,6 +204,41 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - **Unit (Vitest):** Prüfregeln (E-Mail, Passwort-Mindestlänge), Regel für gültige Zieladressen (gerade noch erlaubt, fremde Adressen abgelehnt), Einteilung «öffentlich oder geschützt» im Türsteher, Passwortfeld mit Auge-Schalter.
 - **Integration (Vitest):** `/auth/bestaetigen` mit gültigem, abgelaufenem und fehlendem Schlüssel; Fehlermeldungen der Anmeldung (falsche Daten, zu viele Versuche, nicht erreichbar).
 - **E2E (Playwright, bei `/qa`):** Alle Abläufe ohne Anmeldung (Umleitung, Formularfehler, neutrale Antworten, keine Navigation auf der Anmeldeseite, Handy und Laptop, dunkles Theme). Abläufe mit echter Anmeldung nur, wenn Zugangsdaten für den Test bereitstehen (siehe offene Fragen).
+
+## Implementation Notes (Frontend)
+**Frontend umgesetzt am 2026-11-10.** Die Anmeldung funktioniert gegen Supabase, der Seitenschutz und der Einlöse-Punkt für den Reset-Link fehlen noch (siehe «Offen für `/backend`»).
+
+**Neu**
+- Route-Gruppe `src/app/(auth)/` mit `layout.tsx` (zentrierte Karte, ohne Navigation) und den Seiten `login`, `passwort-vergessen`, `passwort-neu`.
+- `src/components/auth/`: `auth-card.tsx`, `auth-notice.tsx` (Meldung mit Symbol und Text), `password-input.tsx` (Auge-Schalter, verdeckt sich beim Absenden), `login-form.tsx`, `forgot-password-form.tsx`, `new-password-form.tsx`.
+- `src/components/logout-button.tsx`: Abmelden mit Text in der Seitenleiste, nur Symbol in der Kopfzeile am Handy.
+- `src/lib/auth/schemas.ts` (Prüfregeln, Mindestlänge 10), `errors.ts` (Supabase-Fehler in die vereinbarten deutschen Meldungen), `redirect.ts` (nur interne Zieladressen, keine Anmeldeseiten).
+
+**Geändert**
+- `app-sidebar.tsx` und `mobile-header.tsx`: Abmelden-Knopf ergänzt.
+- `brand.tsx`: Der Name neben dem Würfel ist unter 360 px nur für Screenreader sichtbar, damit die Kopfzeile mit zwei Knöpfen bei 320 px nicht überläuft (offene Frage aus der Spec entschieden: kein gemeinsames Menü nötig).
+- `app/layout.tsx`: `Toaster` eingebunden (Meldung, wenn Abmelden fehlschlägt).
+- `tests/PROJ-1-…spec.ts` und `tests/PROJ-11-…spec.ts`: Die Prüfung «keine Geheimnisse im ausgelieferten Code» sucht jetzt nach echten Schlüsseln (JWT mit Rolle ausser `anon`, `sb_secret_…` mit Schlüsselteil, `sbp_…`). Vorher schlug sie an, sobald das Wort «service_role» irgendwo stand. Seit die Browser-Anmeldung eingebunden ist, steht der Variablenname `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` der Konfigurationsprüfung im Browser-Code, und die Supabase-Bibliothek prüft auf das Präfix `sb_secret_`. Beides sind Texte, keine Schlüssel; im ausgelieferten Code liegt nur der öffentliche `anon`-Schlüssel.
+
+**Entscheidungen und Abweichungen**
+- Die Eingabefelder bleiben beim Absenden aktiv (nur der Knopf wird gesperrt), damit nach einem Fehler der Fokus wieder in das Passwortfeld springen kann.
+- Passwort-Reset: Auf `/passwort-vergessen` führen auch «Konto unbekannt»-Antworten zur neutralen Bestätigung. Bei zu vielen Anfragen oder Netzwerkfehlern erscheint die jeweilige Meldung.
+- `/passwort-neu` prüft auf dem Server, ob eine Sitzung besteht (sonst Weiterleitung zu `/passwort-vergessen?fehler=link`). Das ist die Seitenseite der zweiten Verteidigungslinie, der Türsteher folgt in `/backend`.
+- Der Anzeigen-Schalter hat eine Beschriftung («Passwort anzeigen»). Für Tests muss das Passwortfeld mit `exact: true` gesucht werden, sonst trifft die Beschriftung auch den Schalter.
+
+**Offen für `/backend`**
+- Türsteher (`src/proxy.ts`): Seitenschutz, Umleitung mit `?next=`, angemeldete Nutzer von `/login` und `/passwort-vergessen` auf `/` leiten, Sitzung erneuern, `Cache-Control: no-store` für geschützte Seiten.
+- Einlöse-Punkt `/auth/bestaetigen` für den Link aus der Reset-Mail, mit Integrationstests.
+- Zweite Prüfung im App-Rahmen auf dem Server.
+- Fertiger deutscher Text der E-Mail-Vorlage «Reset Password» für das Dashboard.
+- `findLeaks` in den E2E-Tests beachtet nur den `anon`-Schlüssel; falls der Türsteher weitere Variablen braucht, dort ergänzen.
+
+**Geprüft**
+- `npm test`: 82 von 82 grün (neu: Prüfregeln, Fehlermeldungen, Zieladressen, Formulare, Passwortfeld, Abmelden), `npm run lint`: 0 Fehler, `tsc` sauber, Produktionsbuild grün.
+- E2E (Chrome, Produktionsbuild): alle 46 Tests aus PROJ-1 und PROJ-11 laufen weiter (zweifach wiederholt, 92 von 92).
+- Im Browser: `/login`, `/passwort-vergessen` (mit Hinweis «Link nicht mehr gültig») bei 375 px hell und 1440 px dunkel, ohne Navigation, ohne horizontales Scrollen, Titel «Anmelden · Time Tracker Light» bzw. «Passwort zurücksetzen · Time Tracker Light», keine Konsolenfehler. Kopfzeile bei 320 px mit Theme- und Abmelden-Knopf ohne Überlauf.
+- Echter Fehlversuch gegen Supabase mit erfundenen Daten: Meldung «E-Mail oder Passwort stimmt nicht.», E-Mail bleibt stehen, Passwort leer, Fokus im Passwortfeld.
+- **Nicht geprüft:** erfolgreiche Anmeldung, Abmelden und Reset mit dem echten Konto (brauchen deine Zugangsdaten und den Türsteher), Firefox und Safari, Autofill durch einen echten Passwortmanager.
 
 ## QA Test Results
 _To be added by /qa_
