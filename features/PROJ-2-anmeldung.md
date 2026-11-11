@@ -1,8 +1,8 @@
 # PROJ-2: Anmeldung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-10
+**Last Updated:** 2026-11-11
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Konto existiert, Registrierung ist abgeschaltet, E-Mail-Login ist aktiv
@@ -310,8 +310,8 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 
 #### Passwort vergessen (6)
 - [x] Nach dem Absenden erscheint immer die neutrale Bestätigung (nachgestellt und mit einer echten Anfrage für eine unbekannte Adresse)
-- [ ] **Nicht geprüft:** Link in der Mail öffnet «Neues Passwort» (braucht eine echte Mail, siehe «Manuell zu prüfen»). Die Einlöse-Seite lehnt ungültige Codes korrekt ab; mit gültiger Anmeldung ist `/passwort-neu` erreichbar.
-- [ ] **Nicht geprüft:** Passwort mit mindestens 10 Zeichen speichern und danach angemeldet sein (würde das Passwort des Testkontos ändern)
+- [x] Link in der Mail öffnet «Neues Passwort» (von Hand mit echter Mail geprüft, 2026-11-11, vom Nutzer als «ok» gemeldet). Die Einlöse-Seite lehnt ungültige Codes korrekt ab.
+- [x] Passwort mit mindestens 10 Zeichen speichern und danach angemeldet sein (Handtest, 2026-11-11, vom Nutzer als «ok» gemeldet)
 - [x] Zu kurzes Passwort wird am Feld abgelehnt, es geht keine Anfrage an Supabase
 - [x] Abgelaufene, benutzte oder ungültige Links zeigen «Dieser Link ist nicht mehr gültig» mit Formular für einen neuen Link (8 Varianten, auch mit fremder Zieladresse)
 - [ ] **Nicht geprüft:** Neues Passwort gilt auf einem anderen Gerät (setzt den Passwortwechsel voraus)
@@ -398,8 +398,8 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - **Acceptance Criteria:** 26 von 30 geprüft und erfüllt; 4 brauchen eine echte Mail (Link öffnen, Passwort speichern, anderes Gerät, Redirect-URL) und sind in «Manuell zu prüfen» beschrieben
 - **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low), beide am 2026-11-10 behoben und per Test abgesichert
 - **Security:** Keine kritischen Probleme. Der Seitenschutz hält allen Umgehungsversuchen stand. Restrisiko BUG-2: Das Zurücksetzen ist nur in der Oberfläche gesperrt, nicht gegen direkte Aufrufe mit gestohlenem Cookie (siehe «Grenze»).
-- **Production Ready:** Fast. Keine offenen Fehler; der Reset-Ablauf mit echter Mail ist noch von Hand zu prüfen (der Ablauf läuft jetzt über den neuen Marker, also unbedingt testen).
-- **Recommendation:** Reset-Ablauf einmal von Hand testen, danach Status «Approved» und Deploy.
+- **Production Ready:** JA. Keine offenen Fehler. Der Reset-Ablauf mit echter Mail wurde am 2026-11-11 von Hand getestet und vom Nutzer als «ok» gemeldet (nur lokal; die Produktiv-Adresse ist nach dem Deploy zu prüfen).
+- **Recommendation:** Deploy. Danach prüfen: Reset-Link auf `https://time-tracker-light.vercel.app` (Redirect-URL in Supabase), Cookie-Flag `Secure` auf HTTPS.
 
 
 ## Deployment
