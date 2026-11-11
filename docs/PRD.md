@@ -13,7 +13,7 @@ Ich selbst als Einzelperson, die für mehrere Kunden und Projekte arbeitet.
 | Priorität | Feature | Status |
 |-----------|---------|--------|
 | P0 (MVP) | Supabase Infrastructure Setup (Projekt, Umgebungsvariablen, Datenbankschema, Login-Konfiguration) | Deployed |
-| P0 | Anmeldung (E-Mail und Passwort, Einzelnutzer) | Planned |
+| P0 | Anmeldung (E-Mail und Passwort, Einzelnutzer) | Deployed |
 | P0 | Kunden- und Projektverwaltung (anlegen, bearbeiten, archivieren) | Planned |
 | P0 | Manuelle Zeiterfassung inkl. Nacherfassung (Datum, von–bis oder Dauer, Beschreibung, verrechenbare Stunden) | Planned |
 | P0 | Zeiten prüfen und korrigieren (Liste, bearbeiten, löschen) | Planned |
