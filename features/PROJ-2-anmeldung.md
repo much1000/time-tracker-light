@@ -1,6 +1,6 @@
 # PROJ-2: Anmeldung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-11
 
@@ -403,4 +403,8 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://time-tracker-light.vercel.app
+- **Deployed:** 2026-11-11 (Push `fb1b59d` auf `main`, Tag `v1.2.0-PROJ-2`)
+- **Geprüft in Produktion (automatisch):** `/`, `/status` und unbekannte Adressen führen auf `/login` (mit `next`), `/passwort-neu` ohne Marker und ungültige Reset-Codes auf «Link nicht mehr gültig»; `Cache-Control: private, no-store` und Sicherheits-Header vorhanden; Login mit dem Testkonto auf Vercel funktioniert.
+- **Befund (Low):** Das Sitzungs-Cookie `sb-…-auth-token` wird vom Browser-Client ohne `Secure` gesetzt (`secure=false`, SameSite=Lax). Abgemildert durch HSTS (1 Jahr, `includeSubDomains`), sodass Browser nach dem ersten Besuch nie über HTTP anfragen. Behebung: Cookie-Option `secure` im Browser-Client auf HTTPS setzen.
+- **Noch von Hand zu prüfen:** Reset-Mail auf der Produktiv-Adresse (Redirect-URL in Supabase).
