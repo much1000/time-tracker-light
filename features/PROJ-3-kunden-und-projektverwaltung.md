@@ -1,6 +1,6 @@
 # PROJ-3: Kunden- und Projektverwaltung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -82,7 +82,7 @@
 - [ ] Angenommen ein Formular, wenn es abgesendet wird, dann ist der Speichern-Knopf während der Anfrage deaktiviert und zeigt «Wird gespeichert …»; bei einem Fehler (Netzwerk, Dienst) erscheint eine Meldung, die Eingaben bleiben erhalten.
 - [ ] Angenommen Enter in einem Formularfeld, wenn die Eingaben gültig sind, dann wird gespeichert.
 - [ ] Angenommen die Verwaltungsseiten, wenn sie bei 375 px, 768 px und 1440 px Breite angesehen werden, dann läuft nichts über, es gibt kein horizontales Scrollen, und alle bedienbaren Elemente sind mindestens 44 px hoch.
-- [ ] Angenommen die Verwaltungsseiten, wenn sie mit Tastatur und Screenreader genutzt werden, dann sind Dialoge fokusgefangen und per Escape schliessbar, Fehler werden als `role=alert` angesagt, und Beschriftungen sind immer sichtbar.
+- [ ] Angenommen die Verwaltungsseiten, wenn sie mit Tastatur und Screenreader genutzt werden, dann sind Dialoge fokusgefangen und per Escape schliessbar, der Fokus kehrt nach dem Schliessen zum auslösenden Knopf zurück, Fehler am Feld sind per `aria-describedby`/`aria-invalid` mit dem Feld verbunden (der Fokus springt ins erste fehlerhafte Feld), Meldungen oberhalb des Formulars sind `role=alert`, und Beschriftungen sind immer sichtbar. _(Angepasst nach QA, BUG-3.)_
 - [ ] Angenommen Hell- und Dunkelmodus, wenn die Seiten angesehen werden, dann erfüllen alle Farbpaare WCAG AA (Design-System aus PROJ-11).
 - [ ] Angenommen die Seiten, wenn sie geladen werden, dann tragen sie die Titel «Kunden · Time Tracker Light» bzw. «<Kürzel> · Time Tracker Light».
 
@@ -347,8 +347,17 @@ Ein Testlauf stockte einmal mehrere Minuten (Seite blieb auf «Wird geladen»), 
 ### Testdaten
 Die Tests legen Kunden mit Kürzel `T-…` an und archivieren sie. Bei abgebrochenen Läufen blieben einzelne aktiv und wurden per SQL archiviert. Es gibt kein Löschen; die Testkunden bleiben im Archiv des Testkontos.
 
-### Production-Ready
+### Production-Ready (vor Behebung)
 **JA**, wenn die Medium-Fehler akzeptiert werden. Es gibt keine Critical- oder High-Fehler. Empfehlung: BUG-1 und BUG-2 vor `/deploy` beheben (kleine Änderungen), BUG-3 per Entscheidung klären.
+
+### Fehlerbehebung und Re-Test (2026-11-11)
+- **BUG-1 behoben:** Neuer Hook `src/hooks/use-restore-focus.ts` merkt sich das Element, das beim Öffnen den Fokus hatte, und gibt ihm den Fokus nach dem Schliessen zurück (Formular-Dialog, Blatt am Handy und Rückfrage). Der Test «BUG-1» ist jetzt ein normaler Test und besteht.
+- **BUG-2 behoben:** Die Kundenkarte in der Liste darf jetzt schrumpfen (`min-w-0` an der Rasterzelle), der lange Name bricht um. Der Test «BUG-2» ist jetzt ein normaler Test und besteht.
+- **BUG-3 entschieden:** Die Spec wurde gelockert (siehe Akzeptanzkriterium oben). Die bestehende Lösung mit `aria-describedby`, `aria-invalid` und Fokus im ersten fehlerhaften Feld ist üblich und barrierefrei; kein Code geändert.
+- **Re-Test:** Vitest 157 von 157, Playwright 125 von 125 (ohne `test.fail`), `tsc` sauber, Lint ohne Fehler, Build erfolgreich. In zwei Läufen verzögerte sich einmal eine Antwort von Supabase (Seite blieb länger als 5 s auf «Wird geladen» bzw. Speichern); beide Male war der Wiederholungslauf grün, nicht reproduzierbar.
+
+### Production-Ready (nach Re-Test)
+**JA.** Keine offenen Fehler. Status: **Approved**.
 
 ## Deployment
 _To be added by /deploy_

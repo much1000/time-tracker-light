@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { useRestoreFocus } from '@/hooks/use-restore-focus'
 
 interface ConfirmArchiveDialogProps {
   open: boolean
@@ -31,9 +32,10 @@ export function ConfirmArchiveDialog({
   busy,
   onConfirm,
 }: ConfirmArchiveDialogProps) {
+  const restoreFocus = useRestoreFocus(open)
   return (
     <AlertDialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={restoreFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

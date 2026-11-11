@@ -87,7 +87,7 @@ export function CustomerList() {
       {active.length > 0 && (
         <ul className="grid gap-3 sm:grid-cols-2">
           {active.map((customer) => (
-            <li key={customer.id}>
+            <li key={customer.id} className="min-w-0">
               <Link
                 href={`/kunden/${customer.id}`}
                 className="block rounded-lg ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

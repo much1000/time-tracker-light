@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useRestoreFocus } from '@/hooks/use-restore-focus'
 
 interface ResponsiveDialogProps {
   open: boolean
@@ -35,11 +36,12 @@ export function ResponsiveDialog({
   children,
 }: ResponsiveDialogProps) {
   const isMobile = useIsMobile()
+  const restoreFocus = useRestoreFocus(open)
 
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <SheetContent side="bottom" onCloseAutoFocus={restoreFocus} className="max-h-[90dvh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           <SheetHeader className="text-left">
             <SheetTitle>{title}</SheetTitle>
             <SheetDescription>{description}</SheetDescription>
@@ -52,7 +54,7 @@ export function ResponsiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

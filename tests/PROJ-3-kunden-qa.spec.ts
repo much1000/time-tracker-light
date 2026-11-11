@@ -128,9 +128,8 @@ test.describe('mit Anmeldung', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
-  // BUG-1 (Medium): Nach dem Schliessen eines Formulars landet der Fokus nicht wieder auf dem
-  // auslösenden Knopf. Sobald der Fehler behoben ist, entfällt `test.fail` (dann schlägt dieser Test an).
-  test.fail('BUG-1: Fokus kehrt nach dem Schliessen des Formulars zum Knopf «Neuer Kunde» zurück', async ({ page }) => {
+  // BUG-1 (behoben): Nach dem Schliessen eines Formulars kehrt der Fokus zum auslösenden Knopf zurück.
+  test('BUG-1: Fokus kehrt nach dem Schliessen des Formulars zum Knopf «Neuer Kunde» zurück', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/kunden')
     const open = page.getByRole('button', { name: 'Neuer Kunde' })
@@ -216,9 +215,8 @@ test.describe('mit Anmeldung', () => {
     await expect(page.getByRole('link', { name: new RegExp(LONG_NAME) })).toBeVisible()
   })
 
-  // BUG-2 (Medium): Auf der Kundenliste sprengt ein sehr langer Name ohne Leerzeichen bei 320 px die
-  // Kundenkarte (Rasterzelle schrumpft nicht, horizontales Scrollen). Sobald behoben, `test.fail` entfernen.
-  test.fail('BUG-2: Kundenliste bei 320 px: langer Name sprengt die Karte nicht', async ({ page }) => {
+  // BUG-2 (behoben): Ein sehr langer Name ohne Leerzeichen sprengt die Kundenkarte bei 320 px nicht mehr.
+  test('BUG-2: Kundenliste bei 320 px: langer Name sprengt die Karte nicht', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 })
     await page.goto('/kunden')
     await expect(page.getByRole('link', { name: new RegExp(LONG_NAME) })).toBeVisible()
