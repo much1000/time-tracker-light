@@ -1,6 +1,6 @@
 # PROJ-3: Kunden- und Projektverwaltung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -247,6 +247,33 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - **Testdaten:** E2E-Tests legen eigene Kunden mit eindeutigem Kürzel an und archivieren sie wieder; da es kein Löschen gibt, bleiben Testdaten im Archiv. Das Testkonto bekommt dafür ein erkennbares Präfix im Kürzel (z. B. «T-…»).
 - **Mobile:** Blatt von unten, 44-px-Ziele, 320 px Breite prüfen.
 - **Supabase Free:** Bei 100 Kunden und 500 Projekten ist keine Optimierung nötig; ein Index auf Besitzer und Kunde genügt.
+
+## Implementation Notes (Frontend)
+**Stand:** 2026-11-11. Die Oberfläche steht vollständig, arbeitet aber noch mit **Platzhalter-Daten im Browser** (kein Supabase). `/backend` baut Tabellen, Regeln und Funktionen und schliesst die echte Datenhaltung an.
+
+### Was gebaut wurde
+- **Seiten:** `src/app/(app)/kunden/page.tsx` (Liste) und `src/app/(app)/kunden/[id]/page.tsx` (Kundenseite). Beide sind geschützt wie alle Seiten der App-Gruppe.
+- **Navigation:** Neuer Eintrag «Kunden» in `src/lib/navigation.ts` (Reihenfolge Start, Kunden, Status), Seitenleiste und Tab-Leiste übernehmen ihn automatisch.
+- **Komponenten** in `src/components/customers/`: `customer-list`, `customer-detail`, `customer-form-dialog`, `project-form-dialog`, `responsive-dialog` (Dialog ab 768 px, Blatt von unten am Handy), `confirm-archive-dialog`, `archive-section` (eingeklapptes Archiv), `load-states` (Lade- und Fehlerzustand), `preview-notice` (Platzhalter-Hinweis).
+- **Prüfregeln** in `src/lib/customers/schemas.ts`: Kürzel 2 bis 10 Zeichen (A–Z, 0–9, Bindestrich, wird in Grossbuchstaben gewandelt), Name 1 bis 100, Projektnummer höchstens 30, Leerzeichen am Rand fallen weg.
+- **Datenschicht** in `src/lib/customers/`: Schnittstelle `CustomersRepository` (`repository.ts`), Fehlerarten mit deutschen Hinweisen (`errors.ts`) und der **Platzhalter** `mock-repository.ts` (Browser-Speicher). Er bildet die Regeln nach: Eindeutigkeit (auch gegen das Archiv), «Allgemein» beim Anlegen, Archivieren mit Merkmal «mit dem Kunden archiviert», kein Löschen. `index.ts` ist die einzige Stelle, die die Datenhaltung wählt.
+- **Hook:** `src/hooks/use-repository-data.ts` lädt Daten und lädt nach dem Speichern neu, ohne die Seite zu leeren.
+- **Gemeinsame Bausteine wiederverwendet:** `AuthNotice` für Formularfehler, shadcn Dialog/Sheet/AlertDialog/Collapsible/Badge/Skeleton, Sonner für Bestätigungen.
+
+### Abweichungen und Entscheidungen
+- **Daten werden im Browser geladen, nicht auf dem Server** (Tech Design: «Server lädt, Browser schreibt»). Der Browser-Speicher ist auf dem Server nicht lesbar. `/backend` stellt auf Laden im Server um (Seiten reichen die Daten an die Komponenten) und entfernt den Platzhalter samt Hinweis «Vorschau» und Knopf «Zurücksetzen».
+- **Seitentitel der Kundenseite** («<Kürzel> · Time Tracker Light») wird nach dem Laden im Browser gesetzt. Mit Laden im Server ersetzt `/backend` das durch den Titel der Seite selbst.
+- **Archivierte Kunden und Projekte sind schreibgeschützt:** Bearbeiten und «Neues Projekt» gibt es erst nach dem Reaktivieren. Das war in der Spec offen und entspricht der Datenbankregel (kein Projekt unter einem archivierten Kunden).
+- **Mobile Bestätigungen** (Sonner) erscheinen über der Tab-Leiste (`mobileOffset` im Wurzel-Layout), damit sie die Navigation nicht verdecken.
+- **Kein Knopf «Löschen»** nirgends (per Test abgesichert).
+- Kein neues Paket installiert; der Komponententest nutzt `fireEvent` wie die bestehenden Tests.
+
+### Tests
+- **Vitest:** 148 von 148 grün (neu: 12 zur Oberfläche in `customers-ui.test.tsx`, 22 zu Prüfregeln, Fehlermeldungen und Platzhalter-Datenschicht in `customers.test.ts`).
+- `tsc` sauber, `npm run lint`: 0 Fehler.
+- **Regression:** Alle 97 bestehenden E2E-Tests (Chrome, setup und chromium) laufen gegen die Produktionsversion grün. Gegen den Dev-Server schlagen 2 Tests an (Lesen des Quelltexts enthält dort «service_role» in einem Kommentar, ein Tastaturtest ist empfindlich); beide laufen in der Produktionsversion grün.
+- Sichtprüfung im Browser (Chrome, 375 und 1280 px): Leerzustand, Formular mit Fehlern, Liste, Kundenseite, Rückfrage. Dabei zwei Mängel behoben (gequetschter Projektname am Handy, fehlender Abstand im Blatt).
+- **Nicht geprüft:** Dunkles Theme der neuen Seiten, 320 px Breite, Tastaturbedienung der Dialoge, Firefox/Safari. Das gehört in `/qa`.
 
 ## QA Test Results
 _To be added by /qa_

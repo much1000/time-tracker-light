@@ -42,7 +42,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Toaster />
+          {/* Am Handy über der Tab-Leiste (3.5 rem) statt darüber hinweg. */}
+          <Toaster mobileOffset={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }} />
         </ThemeProvider>
       </body>
     </html>

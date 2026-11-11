@@ -1,4 +1,4 @@
-import { Activity, Home, type LucideIcon } from 'lucide-react'
+import { Activity, Home, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   href: string
@@ -11,6 +11,7 @@ export interface NavItem {
 // Auf dem Handy passen höchstens fünf Einträge in die Tab-Leiste.
 export const navItems: NavItem[] = [
   { href: '/', label: 'Start', icon: Home },
+  { href: '/kunden', label: 'Kunden', icon: Users },
   { href: '/status', label: 'Status', icon: Activity },
 ]
 

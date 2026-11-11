@@ -18,8 +18,8 @@ describe('isNavItemActive', () => {
 })
 
 describe('navItems', () => {
-  it('enthält Start und Status mit eindeutigen Adressen', () => {
-    expect(navItems.map((item) => item.label)).toEqual(['Start', 'Status'])
+  it('enthält Start, Kunden und Status mit eindeutigen Adressen', () => {
+    expect(navItems.map((item) => item.label)).toEqual(['Start', 'Kunden', 'Status'])
     expect(new Set(navItems.map((item) => item.href)).size).toBe(navItems.length)
   })
 
