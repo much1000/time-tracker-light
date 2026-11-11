@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MockCustomersRepository } from '@/lib/customers/mock-repository'
+import { InMemoryCustomersRepository } from '@/lib/customers/in-memory-repository'
 import { CustomerDetail } from './customer-detail'
 import { CustomerList } from './customer-list'
 
-let repository: MockCustomersRepository
+let repository: InMemoryCustomersRepository
 
 vi.mock('@/lib/customers', async () => {
   const actual = await vi.importActual<typeof import('@/lib/customers/errors')>(
@@ -13,7 +13,6 @@ vi.mock('@/lib/customers', async () => {
   return {
     ...actual,
     getCustomersRepository: () => repository,
-    resetPreviewData: () => repository.reset(),
   }
 })
 vi.mock('next/link', () => ({
@@ -26,7 +25,7 @@ vi.mock('next/link', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 beforeEach(() => {
-  repository = new MockCustomersRepository(null, 0)
+  repository = new InMemoryCustomersRepository(0)
   // Der Dialog-Rahmen fragt die Bildschirmbreite ab (Desktop-Darstellung).
   window.matchMedia = vi.fn().mockReturnValue({
     matches: false,

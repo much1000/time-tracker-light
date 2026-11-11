@@ -8,7 +8,6 @@ import { ArchiveSection } from '@/components/customers/archive-section'
 import { ConfirmArchiveDialog } from '@/components/customers/confirm-archive-dialog'
 import { CustomerFormDialog } from '@/components/customers/customer-form-dialog'
 import { LoadError, LoadingCards } from '@/components/customers/load-states'
-import { PreviewNotice } from '@/components/customers/preview-notice'
 import { ProjectFormDialog } from '@/components/customers/project-form-dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -148,8 +147,6 @@ function CustomerDetailView({
           )}
         </div>
       </div>
-
-      <PreviewNotice onReset={reload} />
 
       {customer.archived && (
         <Alert role="note">

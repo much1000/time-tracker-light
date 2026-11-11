@@ -1,30 +1,13 @@
-import { MockCustomersRepository } from './mock-repository'
+import { createClient } from '@/lib/supabase/client'
 import type { CustomersRepository } from './repository'
+import { SupabaseCustomersRepository } from './supabase-repository'
 
-// Einzige Stelle, die entscheidet, welche Datenhaltung die Oberfläche nutzt.
-// PLATZHALTER: Browser-Speicher. `/backend` tauscht dies gegen Supabase aus.
-let repository: MockCustomersRepository | null = null
-
-function getMock(): MockCustomersRepository {
-  if (!repository) {
-    let storage: Storage | null = null
-    try {
-      storage = typeof window === 'undefined' ? null : window.localStorage
-    } catch {
-      storage = null
-    }
-    repository = new MockCustomersRepository(storage)
-  }
-  return repository
-}
+// Einzige Stelle, die entscheidet, welche Datenhaltung die Oberfläche nutzt: Supabase.
+let repository: CustomersRepository | null = null
 
 export function getCustomersRepository(): CustomersRepository {
-  return getMock()
-}
-
-// Nur für die Vorschau mit Platzhalter-Daten (Knopf «Zurücksetzen»). Entfällt mit `/backend`.
-export function resetPreviewData(): void {
-  getMock().reset()
+  if (!repository) repository = new SupabaseCustomersRepository(createClient())
+  return repository
 }
 
 export { RepositoryError, describeRepositoryError } from './errors'

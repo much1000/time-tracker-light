@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { describeRepositoryError, RepositoryError } from './errors'
-import { MockCustomersRepository, type StorageLike } from './mock-repository'
+import { InMemoryCustomersRepository } from './in-memory-repository'
 import { customerSchema, projectSchema } from './schemas'
 
 describe('customerSchema', () => {
@@ -79,20 +79,11 @@ describe('describeRepositoryError', () => {
   })
 })
 
-function memoryStorage(): StorageLike {
-  const data = new Map<string, string>()
-  return {
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => void data.set(key, value),
-    removeItem: (key) => void data.delete(key),
-  }
-}
-
-describe('MockCustomersRepository', () => {
-  let repo: MockCustomersRepository
+describe('InMemoryCustomersRepository', () => {
+  let repo: InMemoryCustomersRepository
 
   beforeEach(() => {
-    repo = new MockCustomersRepository(memoryStorage(), 0)
+    repo = new InMemoryCustomersRepository(0)
   })
 
   async function kind(promise: Promise<unknown>): Promise<string | undefined> {
@@ -225,24 +216,5 @@ describe('MockCustomersRepository', () => {
       'not-found'
     )
     expect(await kind(repo.archiveProject('gibt-es-nicht'))).toBe('not-found')
-  })
-
-  it('behält die Daten im Speicher und beginnt nach dem Zurücksetzen leer', async () => {
-    const storage = memoryStorage()
-    const first = new MockCustomersRepository(storage, 0)
-    await first.createCustomer({ code: 'MUS', name: 'Muster AG' })
-
-    const second = new MockCustomersRepository(storage, 0)
-    expect(await second.listCustomers()).toHaveLength(1)
-
-    second.reset()
-    expect(await second.listCustomers()).toHaveLength(0)
-  })
-
-  it('übersteht beschädigte Daten im Speicher', async () => {
-    const storage = memoryStorage()
-    storage.setItem('tt-preview-customers', '{kaputt')
-    const damaged = new MockCustomersRepository(storage, 0)
-    expect(await damaged.listCustomers()).toEqual([])
   })
 })

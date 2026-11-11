@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import { ArchiveSection } from '@/components/customers/archive-section'
 import { CustomerFormDialog } from '@/components/customers/customer-form-dialog'
 import { LoadError, LoadingCards } from '@/components/customers/load-states'
-import { PreviewNotice } from '@/components/customers/preview-notice'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -58,8 +57,6 @@ export function CustomerList() {
           Neuer Kunde
         </Button>
       </div>
-
-      <PreviewNotice onReset={reload} />
 
       {state.status === 'loading' && <LoadingCards />}
       {state.status === 'error' && <LoadError onRetry={retry} />}

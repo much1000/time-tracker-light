@@ -9,23 +9,13 @@ import type {
   ProjectInput,
 } from './types'
 
-// PLATZHALTER nur für die Oberfläche (PROJ-3, Frontend). Die Daten liegen im Browser dieses
-// Geräts und nicht in der Datenbank. `/backend` ersetzt diese Datei durch Supabase und löscht sie.
-// Sie bildet die Regeln des Spec nach (Eindeutigkeit, Archivieren mit Merkmal, kein Löschen),
-// damit die Oberfläche vollständig ausprobiert werden kann.
-
-export const MOCK_STORAGE_KEY = 'tt-preview-customers'
-const SIMULATED_DELAY_MS = 120
+// Test-Double: bildet die Regeln der Datenbank im Speicher nach (Eindeutigkeit, Archivieren mit
+// Merkmal, kein Löschen). Wird nur in Tests genutzt, die Oberfläche läuft gegen
+// SupabaseCustomersRepository.
 
 interface Store {
   customers: Customer[]
   projects: Project[]
-}
-
-export interface StorageLike {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-  removeItem(key: string): void
 }
 
 function emptyStore(): Store {
@@ -50,49 +40,17 @@ function cleanNumber(value: string | null | undefined): string | null {
   return trimmed === '' ? null : trimmed
 }
 
-export class MockCustomersRepository implements CustomersRepository {
+export class InMemoryCustomersRepository implements CustomersRepository {
   private memory: Store = emptyStore()
 
-  constructor(
-    private readonly storage: StorageLike | null,
-    private readonly delayMs: number = SIMULATED_DELAY_MS
-  ) {}
-
-  // ----- Speicher -----
+  constructor(private readonly delayMs: number = 0) {}
 
   private read(): Store {
-    if (!this.storage) return this.memory
-    try {
-      const raw = this.storage.getItem(MOCK_STORAGE_KEY)
-      if (!raw) return emptyStore()
-      const parsed = JSON.parse(raw) as Store
-      if (!Array.isArray(parsed.customers) || !Array.isArray(parsed.projects)) return emptyStore()
-      return parsed
-    } catch {
-      return emptyStore()
-    }
+    return this.memory
   }
 
   private write(store: Store): void {
-    if (!this.storage) {
-      this.memory = store
-      return
-    }
-    try {
-      this.storage.setItem(MOCK_STORAGE_KEY, JSON.stringify(store))
-    } catch {
-      throw new RepositoryError('unknown')
-    }
-  }
-
-  // Für den Knopf «Platzhalter-Daten zurücksetzen».
-  reset(): void {
-    this.memory = emptyStore()
-    try {
-      this.storage?.removeItem(MOCK_STORAGE_KEY)
-    } catch {
-      // nichts zu tun
-    }
+    this.memory = store
   }
 
   private async tick(): Promise<void> {

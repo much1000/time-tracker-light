@@ -275,6 +275,35 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - Sichtprüfung im Browser (Chrome, 375 und 1280 px): Leerzustand, Formular mit Fehlern, Liste, Kundenseite, Rückfrage. Dabei zwei Mängel behoben (gequetschter Projektname am Handy, fehlender Abstand im Blatt).
 - **Nicht geprüft:** Dunkles Theme der neuen Seiten, 320 px Breite, Tastaturbedienung der Dialoge, Firefox/Safari. Das gehört in `/qa`.
 
+## Implementation Notes (Backend)
+**Stand:** 2026-11-11. Die Oberfläche läuft jetzt gegen die echte Datenbank (Supabase-Projekt `time-tracker-light`). Der Platzhalter im Browser samt Hinweis «Vorschau» ist entfernt.
+
+### Datenbank
+- **Migration:** `supabase/migrations/20261111000000_customers_projects.sql`, am 2026-11-11 mit Freigabe des Nutzers auf Supabase angewendet.
+- **Tabellen** `customers` und `projects`, Row Level Security auf beiden. Policies nur für `authenticated` und nur auf eigene Zeilen (lesen, anlegen, ändern). **Keine Löschregel, und das Recht `DELETE` fehlt ganz.** `anon` hat keinerlei Rechte.
+- **Besitzer:** Trigger setzt `owner_id` beim Anlegen aus der Anmeldung (ein mitgeschickter Wert wird überschrieben) und hält ihn beim Ändern fest. Ohne Anmeldung wird nichts angelegt.
+- **Grenzen in der Datenbank:** Kürzel `^[A-Z0-9-]{2,10}$`, Name 1 bis 100 ohne Leerzeichen am Rand, Projektnummer leer (NULL) oder 1 bis 30 ohne Leerzeichen am Rand. Eindeutig: Kürzel pro Besitzer, Kundenname pro Besitzer und Projektname pro Kunde (jeweils ohne Beachtung der Gross-/Kleinschreibung, auch gegen das Archiv).
+- **Projekt gehört dem Besitzer seines Kunden:** zusammengesetzter Fremdschlüssel (Kunde, Besitzer). Projekte verweisen mit `ON DELETE RESTRICT` auf Kunden.
+- **Archiv-Regeln:** Ein archiviertes Projekt eines archivierten Kunden lässt sich nicht reaktivieren, und unter einem archivierten Kunden entsteht kein aktives Projekt (Trigger, Fehler `customer_archived`).
+- **Drei unteilbare Funktionen** (laufen mit den Rechten des Aufrufers, RLS gilt; nur `authenticated` darf sie aufrufen): `create_customer` (Kunde plus «Allgemein»), `archive_customer`, `reactivate_customer` (nur Projekte mit «mit dem Kunden archiviert»).
+- Indizes: Eindeutigkeits-Indizes decken Kunde und Besitzer ab, zusätzlich `projects_owner_id_idx`.
+
+### Code
+- `src/lib/customers/supabase-repository.ts`: `SupabaseCustomersRepository` setzt dieselbe Schnittstelle `CustomersRepository` um. Datenbankfehler werden zu `RepositoryError` (doppeltes Kürzel, Name, Projekt mit Zusatz «im Archiv», Kunde archiviert, Sitzung abgelaufen, nicht erreichbar, nicht gefunden). Ungültige Kennungen liefern «Kunde nicht gefunden», ohne die Datenbank zu fragen.
+- `src/lib/customers/index.ts` wählt jetzt Supabase (Browser-Client mit dem öffentlichen Schlüssel).
+- **Entfernt:** `preview-notice.tsx`, Platzhalter-Speicher im Browser, «Zurücksetzen». Der Speicher-Nachbau lebt als reines Test-Double in `in-memory-repository.ts` (für die Oberflächentests).
+- Keine API-Routen (wie im Tech Design: direkter Zugriff über Supabase, geschützt durch RLS).
+
+### Abweichung vom Tech Design
+- **Laden im Browser statt im Server:** Die Seiten laden ihre Daten weiter im Browser (mit Lade- und Fehlerzustand), statt sie auf dem Server vorzuladen. Der Schutz hängt an der Datenbank und ist davon unabhängig; das Laden im Server wäre nur ein schnellerer erster Anblick. Der Seitentitel der Kundenseite wird deshalb weiter im Browser gesetzt. Kann bei Bedarf in einem Folgeschritt umgestellt werden (Entscheidung beim Nutzer, siehe Übergabe).
+
+### Tests
+- **Datenbankregeln direkt per SQL** (in einer zurückgerollten Transaktion, zwei echte Nutzer-IDs, Rolle `authenticated` bzw. `anon`): alle 22 Prüfungen wie erwartet. Anlegen mit «Allgemein», Kürzel nur Grossbuchstaben, Duplikate (Kürzel, Name ohne Beachtung der Schreibweise, Projekt), Leerzeichen am Rand, Nummer über 30, Besitzer nicht fälschbar und unveränderlich, Löschen verweigert, Kunde archivieren archiviert 3 von 3 Projekten, Reaktivieren aktiviert nur die mit dem Kunden archivierten, kein Reaktivieren oder Anlegen unter archiviertem Kunden, zweiter Nutzer sieht 0 Zeilen und kann nichts ändern oder archivieren, `anon` ist ohne Zugriff (Tabellen und Funktion).
+- **Vitest:** 157 von 157 grün (neu: 11 Tests der Supabase-Datenschicht zur Fehlerübersetzung). `tsc` sauber, Lint ohne Fehler.
+- **E2E gegen die echte Datenbank** (`tests/PROJ-3-kunden-datenbank.spec.ts`, Produktionsbuild, Chrome): 4 von 4 grün: Anlegen mit «Allgemein» und Bestand nach Neuladen, Duplikat-Hinweise am Feld, Projekt mit Nummer, Archivieren und Reaktivieren, `anon` mit öffentlichem Schlüssel ohne Zugriff.
+- **Testdaten:** Der E2E-Test legt Kunden mit Kürzel `T-…` an und archiviert sie am Ende; es gibt kein Löschen, sie bleiben im Archiv des Testkontos.
+- **Supabase-Hinweis (nicht aus PROJ-3):** «Leaked Password Protection» ist ausgeschaltet (Auth-Einstellung, Free-Plan).
+
 ## QA Test Results
 _To be added by /qa_
 

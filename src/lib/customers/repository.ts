@@ -8,8 +8,7 @@ import type {
 } from './types'
 
 // Schnittstelle zur Datenhaltung für Kunden und Projekte.
-// Die Oberfläche kennt nur diese Schnittstelle. Heute steht dahinter ein Platzhalter im
-// Browser (mock-repository.ts), `/backend` ersetzt ihn durch Supabase mit denselben Regeln.
+// Die Oberfläche kennt nur diese Schnittstelle. Dahinter steht Supabase (supabase-repository.ts); Tests nutzen in-memory-repository.ts.
 // Alle Methoden werfen bei Fehlern einen RepositoryError (siehe errors.ts).
 export interface CustomersRepository {
   // Alle Kunden des Nutzers (aktiv und archiviert) mit Zahl der aktiven Projekte, nach Kürzel sortiert.
