@@ -37,6 +37,8 @@ describe('LogoutButton', () => {
 
     await waitFor(() => expect(window.location.href).toBe('/login'))
     expect(signOut).toHaveBeenCalledTimes(1)
+    // Nur dieses Gerät abmelden (BUG-1): nie die Standardeinstellung «alle Geräte».
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
   })
 
   it('sperrt sich beim Abmelden und sendet nur einmal', async () => {

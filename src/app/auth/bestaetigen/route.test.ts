@@ -10,6 +10,10 @@ const createClient = vi.fn()
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => createClient(),
 }))
+const setCookie = vi.fn()
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ set: setCookie }),
+}))
 // redirect() wirft in Next.js. Hier wird das Ziel als Fehler sichtbar gemacht.
 vi.mock('next/navigation', () => ({
   redirect: (to: string) => {
@@ -50,6 +54,22 @@ describe('GET /auth/bestaetigen mit Code (Standardvorlage)', () => {
     })
 
     expect(await call('?code=abc123')).toBe(INVALID)
+  })
+
+  it('setzt den Reset-Marker nur nach einem eingelösten Link (BUG-2)', async () => {
+    exchangeCodeForSession.mockResolvedValue({ data: {}, error: null })
+    await call('?code=abc123')
+    expect(setCookie).toHaveBeenCalledWith(
+      'tt-recovery',
+      '1',
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/', maxAge: 900 })
+    )
+
+    setCookie.mockClear()
+    exchangeCodeForSession.mockResolvedValue({ data: null, error: { status: 404 } })
+    await call('?code=abc123')
+    await call('')
+    expect(setCookie).not.toHaveBeenCalled()
   })
 
   it('lehnt übermässig lange Codes ab, ohne Supabase anzufragen', async () => {

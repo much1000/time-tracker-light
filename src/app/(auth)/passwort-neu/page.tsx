@@ -1,24 +1,29 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
 import { NewPasswordForm } from '@/components/auth/new-password-form'
+import { RECOVERY_COOKIE } from '@/lib/auth/recovery'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
   title: 'Passwort zurücksetzen',
 }
 
-// Ohne gültigen Link (und damit ohne Sitzung) gibt es hier nichts zu tun.
+// Nur mit eingelöstem Reset-Link (Marker) und Sitzung. Eine gewöhnliche Anmeldung genügt nicht.
 export default async function NewPasswordPage() {
-  let signedIn = false
+  let allowed = false
   try {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getUser()
-    signedIn = Boolean(data.user)
+    const cookieStore = await cookies()
+    if (cookieStore.get(RECOVERY_COOKIE)?.value === '1') {
+      const supabase = await createClient()
+      const { data } = await supabase.auth.getUser()
+      allowed = Boolean(data.user)
+    }
   } catch {
-    signedIn = false
+    allowed = false
   }
-  if (!signedIn) redirect('/passwort-vergessen?fehler=link')
+  if (!allowed) redirect('/passwort-vergessen?fehler=link')
 
   return (
     <AuthCard title="Neues Passwort" description="Lege ein neues Passwort für dein Konto fest.">

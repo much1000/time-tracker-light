@@ -20,7 +20,7 @@ export function LogoutButton({ variant = 'labeled', className }: LogoutButtonPro
     if (busy) return
     setBusy(true)
     try {
-      const { error } = await createClient().auth.signOut()
+      const { error } = await createClient().auth.signOut({ scope: 'local' })
       if (error) throw error
       window.location.href = '/login'
     } catch {

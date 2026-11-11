@@ -1,7 +1,9 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { LINK_INVALID_PATH } from '@/lib/auth/access'
+import { RECOVERY_COOKIE, recoveryCookieOptions } from '@/lib/auth/recovery'
 import { createClient } from '@/lib/supabase/server'
 
 // Löst den Link aus der Reset-Mail ein. Zwei Formen werden verstanden:
@@ -30,6 +32,16 @@ export async function GET(request: NextRequest) {
           ? await supabase.auth.exchangeCodeForSession(params.code)
           : await supabase.auth.verifyOtp({ type: 'recovery', token_hash: params.token_hash })
       verified = !error
+    } catch {
+      verified = false
+    }
+  }
+
+  // Nur ein eingelöster Reset-Link berechtigt zu «Neues Passwort».
+  if (verified) {
+    try {
+      const cookieStore = await cookies()
+      cookieStore.set(RECOVERY_COOKIE, '1', recoveryCookieOptions())
     } catch {
       verified = false
     }

@@ -43,7 +43,8 @@ export function NewPasswordForm() {
       if (error) throw error
       // Nach dem Setzen ist der Nutzer angemeldet und landet auf der Startseite.
       setRedirecting(true)
-      window.location.href = '/'
+      // Die Route löscht den Reset-Marker und führt auf die Startseite.
+      window.location.href = '/auth/abschliessen'
     } catch (error) {
       setRedirecting(false)
       const result = describeAuthError(error)

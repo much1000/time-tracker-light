@@ -253,7 +253,8 @@ describe('NewPasswordForm', () => {
     fill('Neues Passwort', 'ein-langes-passwort')
     fireEvent.click(screen.getByRole('button', { name: 'Passwort speichern' }))
 
-    await waitFor(() => expect(window.location.href).toBe('/'))
+    // Die Route löscht den Reset-Marker und führt auf die Startseite.
+    await waitFor(() => expect(window.location.href).toBe('/auth/abschliessen'))
     expect(updateUser).toHaveBeenCalledWith({ password: 'ein-langes-passwort' })
   })
 
