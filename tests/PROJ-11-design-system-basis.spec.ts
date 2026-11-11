@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { hasTestUser, SKIP_REASON } from './helpers/env'
 
 // PROJ-11: Design-System-Basis
+// Seit PROJ-2 sind alle Seiten geschützt: Die Tests laufen mit der gespeicherten Anmeldung des Testkontos.
+test.skip(!hasTestUser, SKIP_REASON)
 // Voraussetzung: .env.local ist gesetzt (die Seite /status prüft die Datenbank).
 
 const MOBILE = { width: 375, height: 740 }

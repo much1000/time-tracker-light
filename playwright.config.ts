@@ -1,22 +1,48 @@
 import { defineConfig, devices } from '@playwright/test'
+import { STORAGE_STATE } from './tests/helpers/env'
+
+// Umgebungsvariablen (optional), z. B. für einen Lauf gegen einen Produktionsbuild:
+//   PW_BASE_URL=http://localhost:3100 PW_SERVER_COMMAND="npx next start -p 3100" PW_CHANNEL=chrome
+const baseURL = process.env.PW_BASE_URL ?? 'http://localhost:3000'
+const channel = process.env.PW_CHANNEL || undefined
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: 'html',
+  reporter: process.env.PW_REPORTER ?? 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'Mobile Safari', use: { ...devices['iPhone 13'] } },
+    // Meldet das Testkonto einmal an (Zugangsdaten aus .env.test.local).
+    { name: 'setup', testMatch: /auth\.setup\.ts/, use: { channel } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel, storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+      testIgnore: /(auth\.setup|logout\.spec)\.ts/,
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 13'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+      testIgnore: /(auth\.setup|logout\.spec)\.ts/,
+    },
+    // Abmelden beendet derzeit alle Sitzungen des Kontos und läuft deshalb zuletzt,
+    // nachdem alle anderen Tests mit der gespeicherten Anmeldung fertig sind.
+    {
+      name: 'logout',
+      testMatch: /logout\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], channel },
+      dependencies: ['chromium'],
+    },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
+    command: process.env.PW_SERVER_COMMAND ?? 'npm run dev',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
   },
 })

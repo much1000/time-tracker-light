@@ -1,6 +1,6 @@
 # PROJ-2: Anmeldung
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-10
 
@@ -98,7 +98,7 @@
 - [ ] **Redirect-URLs in Supabase:** `http://localhost:3000` und `https://time-tracker-light.vercel.app` müssen eingetragen sein (laut `/deploy` offen bzw. unklar, ob erledigt).
 - [x] ~~E-Mail-Vorlage für «Passwort zurücksetzen» auf Deutsch anpassen~~ Entschieden in `/backend`: Auf dem Free-Plan ist die Vorlage nur mit eigenem SMTP-Server änderbar. Es bleibt bei der englischen Standardvorlage (siehe Decision Log).
 - [ ] **Eigener SMTP-Server später?** Bringt deutsche Vorlage, geräteübergreifenden Link und höheres Mail-Limit. Nur bei Bedarf (z. B. wenn Link-Scanner oder Browserwechsel auf dem Handy stören).
-- [ ] **Wie testet `/qa` die echte Anmeldung?** Vorschlag: Zugangsdaten für den Test kommen aus einer lokalen, nicht eingecheckten Datei (z. B. `.env.test.local`, in `.gitignore`), nur auf deinem Rechner. Ohne sie prüft `/qa` alle Abläufe ohne Login und überlässt dir die Handprüfung von Anmelden, Abmelden und Passwort-Reset. Entscheidung vor `/qa`.
+- [x] ~~**Wie testet `/qa` die echte Anmeldung?**~~ Entschieden: Zugangsdaten des Testkontos aus `.env.test.local` (nur lokal). Ursprüngliche Frage: Vorschlag: Zugangsdaten für den Test kommen aus einer lokalen, nicht eingecheckten Datei (z. B. `.env.test.local`, in `.gitignore`), nur auf deinem Rechner. Ohne sie prüft `/qa` alle Abläufe ohne Login und überlässt dir die Handprüfung von Anmelden, Abmelden und Passwort-Reset. Entscheidung vor `/qa`.
 - [ ] **Abmelden-Knopf in der Kopfzeile am Handy:** Bei 320 px Breite könnte es mit Logo, Theme-Knopf und Abmelden-Knopf eng werden. Fällt es zu eng aus, werden Darstellung und Abmelden in ein gemeinsames Menü gelegt. Entscheidung in `/frontend`.
 - [ ] **E-Mail-Versand:** Supabase Free versendet mit eingeschränktem eigenem Dienst (wenige Mails pro Stunde, Absender von Supabase). Für ein Konto genügt das. Nachprüfen, dass die Mail nicht im Spam landet.
 
@@ -275,7 +275,132 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - **Nicht geprüft:** Alles mit gültiger Anmeldung (Weiterleitung nach dem Login, Sitzung bleibt, Abmelden, Zurück-Taste, Reset-Link per echter Mail), weil das Zugangsdaten und das Dashboard brauchen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-10
+**App URL:** http://localhost:3100 (Produktionsbuild, `next start`; Chrome; echtes Supabase-Projekt, Testkonto aus `.env.test.local`)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### Seitenschutz (6 Kriterien)
+- [x] Ohne Anmeldung führen `/`, `/status` und weitere geschützte Adressen auf `/login`, ohne Inhalt der Seite und ohne Navigation
+- [x] Nach der Umleitung führt die Anmeldung auf die gewünschte Seite zurück (`?next=`, auch mit Suchparametern)
+- [x] Direkt geöffnete Anmeldeseite führt nach dem Login auf `/`
+- [x] Angemeldete werden von `/login` und `/passwort-vergessen` auf `/` geleitet
+- [x] Unbekannte Adressen führen ohne Anmeldung ebenfalls auf die Anmeldung
+- [x] `/status` löst ohne Anmeldung keine Datenbankanfrage aus (307 ohne Seiteninhalt; BUG-6 aus PROJ-1 behoben)
+
+#### Anmeldung (9)
+- [x] Anmeldeseite mit Logo, Überschrift, E-Mail, Passwort, Knopf und Link, ohne Seitenleiste und Tab-Leiste
+- [x] Korrekte Daten melden an und leiten weiter (Testkonto, über die Oberfläche)
+- [x] Knopf ist während der Anfrage gesperrt und zeigt «Anmelden …» (Doppelklick sendet nur eine Anfrage)
+- [x] Anmeldung bleibt nach Neuladen und in neuen Tabs bestehen (Cookie mit 400 Tagen Laufzeit). Das Schliessen und Neuöffnen des ganzen Browsers wurde nicht gesondert geprüft.
+- [x] Zwei Geräte sind unabhängig angemeldet
+- [x] Falsche Daten: «E-Mail oder Passwort stimmt nicht.», E-Mail bleibt, Passwort leer, Fokus im Passwortfeld; die Meldung ist für bekannte und unbekannte Adresse identisch
+- [x] Leere Pflichtfelder und ungültige E-Mail werden am Feld gemeldet (`aria-invalid`, Fokus auf dem ersten Fehler), es geht keine Anfrage raus
+- [x] Zu viele Versuche zeigen den Hinweis zum Warten (Antwort von Supabase nachgestellt, der echte Dienst wurde nicht belastet)
+- [x] Nicht erreichbar zeigt die vereinbarte Meldung, die Eingabe bleibt erhalten (Netzwerkabbruch und Serverfehler nachgestellt)
+
+#### Passwortfeld und Bedienung (5)
+- [x] Anzeigen-/Verbergen-Schalter mit Beschriftung, per Tastatur bedienbar, nach dem Absenden wieder verdeckt
+- [x] Felder sind für Browser und Passwortmanager ausgezeichnet (`autocomplete`: `username`, `current-password`). Ein echter Passwortmanager wurde nicht eingesetzt.
+- [x] Handy-Tastatur: `type=email`, `inputmode=email`, Grossschreibung und Autokorrektur aus
+- [x] Elemente mindestens 44 px hoch, Labels sichtbar, Fehler als `role=alert`, Kontrast und Fokusring aus dem Design-System (Farbwerte in PROJ-11 gemessen)
+- [x] Titel «Anmelden · Time Tracker Light» und «Passwort zurücksetzen · Time Tracker Light»
+
+#### Passwort vergessen (6)
+- [x] Nach dem Absenden erscheint immer die neutrale Bestätigung (nachgestellt und mit einer echten Anfrage für eine unbekannte Adresse)
+- [ ] **Nicht geprüft:** Link in der Mail öffnet «Neues Passwort» (braucht eine echte Mail, siehe «Manuell zu prüfen»). Die Einlöse-Seite lehnt ungültige Codes korrekt ab; mit gültiger Anmeldung ist `/passwort-neu` erreichbar.
+- [ ] **Nicht geprüft:** Passwort mit mindestens 10 Zeichen speichern und danach angemeldet sein (würde das Passwort des Testkontos ändern)
+- [x] Zu kurzes Passwort wird am Feld abgelehnt, es geht keine Anfrage an Supabase
+- [x] Abgelaufene, benutzte oder ungültige Links zeigen «Dieser Link ist nicht mehr gültig» mit Formular für einen neuen Link (8 Varianten, auch mit fremder Zieladresse)
+- [ ] **Nicht geprüft:** Neues Passwort gilt auf einem anderen Gerät (setzt den Passwortwechsel voraus)
+
+#### Abmelden (3)
+- [x] Abmelden-Knopf in der Seitenleiste (Laptop) und in der Kopfzeile (Handy), je mindestens 44 px
+- [x] Abmelden führt auf `/login`; die Zurück-Taste zeigt keinen geschützten Inhalt; die Sitzungs-Cookies sind entfernt
+- [x] Nach dem Abmelden führen geschützte Adressen wieder auf die Anmeldung
+
+#### Offene Punkte aus PROJ-1 (1)
+- [ ] AC-6 (echter Login) ist erfüllt. AC-8 (Redirect-URL `http://localhost:3000` für den Reset-Link) ist nur mit einer echten Mail prüfbar.
+
+### Edge Cases Status
+- [x] Sitzung läuft ab (Cookies entfernt): nächste Seite führt auf `/login?next=…`
+- [x] Doppelklick auf «Anmelden»: eine Anfrage
+- [x] Zurück-Taste nach dem Anmelden bleibt in der App
+- [x] E-Mail in Grossbuchstaben und mit Leerzeichen am Rand funktioniert
+- [x] Sehr langes Passwort (230 Zeichen) mit Sonderzeichen wird ohne Absturz abgelehnt
+- [ ] **Nicht geprüft:** Reset-Link auf anderem Gerät (nach Entscheid mit der Standardvorlage ausdrücklich nicht unterstützt, siehe Decision Log)
+- [x] Mehrfach «Passwort vergessen»: die Begrenzung wird als «Zu viele Versuche» angezeigt (nachgestellt)
+- [x] Fehlende Konfiguration: Fehlerfall im Türsteher per Unit-Test geprüft (geschützte Seiten bleiben zu)
+- [x] Anmeldeseiten bei 320, 375, 768 und 1440 px: kein horizontales Scrollen; dunkles Theme bleibt lesbar
+- [x] JavaScript lädt nicht: nicht gesondert geprüft, die Spec nimmt dafür keine Meldung an
+
+### Security Audit Results
+- [x] **Authentifizierung:** Alle geschützten Adressen sind ohne Sitzung zu (Startseite, Status, unbekannte Adressen, Adressen mit Parametern)
+- [x] **Umgehung des Türstehers:** `/status/`, `//status`, `/status.png`, `/STATUS`, `/status%2f`, `/%73tatus`, `/status;x=1`, `/.%2e/status`, `/_next/data/x/status.json` und `/status?.png` liefern keinen geschützten Inhalt. Der bekannte Header-Trick `x-middleware-subrequest` (6 Varianten, auch `proxy`) bleibt wirkungslos (307 auf `/login`).
+- [x] **Open Redirect:** `https://evil.example`, `//evil.example`, `/\evil.example`, `javascript:alert(1)` und `/login` als Zieladresse führen nach der Anmeldung immer auf `/`; der Einlöse-Punkt übernimmt nie ein Ziel aus dem Link
+- [x] **XSS:** Manipulierte `next`- und `fehler`-Parameter werden nicht ausgeführt und nicht angezeigt
+- [x] **Geheimnisse:** Die Anmeldeseite liefert nur den öffentlichen `anon`-Schlüssel aus; kein Service-Role-Schlüssel und keine Tokens
+- [x] **Enumeration:** Fehlermeldung bei der Anmeldung und Bestätigung bei «Passwort vergessen» sind für bekannte und unbekannte Adressen gleich
+- [x] **Zwischenspeicher und Header:** geschützte Antworten und Umleitungen tragen `Cache-Control: private, no-store`; Sicherheits-Header bleiben erhalten
+- [x] **Einlöse-Punkt:** nur `code` oder `token_hash` mit `type=recovery`, begrenzte Länge, andere Typen (`magiclink`, `signup`) abgelehnt
+- [x] **BUG-1 (behoben):** Abmelden beendet nur noch die eigene Sitzung
+- [x] **BUG-2 (behoben, Oberfläche):** `/passwort-neu` ist nur nach einem eingelösten Reset-Link erreichbar
+- Hinweise (keine Fehler): Das Sitzungs-Cookie ist nicht `HttpOnly` (nötig für die Anmeldung aus dem Browser, Projektregel), `SameSite=Lax`, 400 Tage; ob es auf HTTPS `Secure` ist, ist nach dem Deployment zu prüfen. Ein Zugriffsschlüssel bleibt nach Abmelden oder Sitzungsende bis zu seinem Ablauf (bis 1 Stunde) gültig, das ist Verhalten von Supabase.
+- Begrenzung der Versuche: Sie liegt bei Supabase und wurde bewusst nicht mit vielen echten Anfragen getestet.
+
+### Bugs Found
+
+#### BUG-1: Abmelden beendet die Anmeldung auf allen Geräten — BEHOBEN 2026-11-10
+- **Behebung:** `signOut({ scope: 'local' })` in `src/components/logout-button.tsx`. Der Unit-Test prüft den Aufruf, der E2E-Test (ehemals `test.fail`) ist jetzt ein normaler Test und grün: Der Erneuerungsschlüssel von Gerät B bleibt gültig.
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Auf Gerät A und Gerät B mit demselben Konto anmelden
+  2. Auf Gerät A «Abmelden» klicken
+  3. Erwartet (Spec): Nur Gerät A ist abgemeldet, «Auf allen Geräten abmelden» ist ausdrücklich nicht Teil von PROJ-2
+  4. Tatsächlich: Der Erneuerungsschlüssel von Gerät B ist danach ungültig (die Anfrage zur Erneuerung liefert 400). Gerät B lädt noch weiter, bis sein Zugriffsschlüssel abläuft (bis 1 Stunde), und fliegt dann ohne Vorwarnung raus.
+- **Ursache:** `signOut()` des Supabase-Pakets beendet standardmässig alle Sitzungen (`scope: 'global'`). Behebung: `signOut({ scope: 'local' })` im Abmelden-Knopf.
+- **Priority:** Fix before deployment (sonst fliegt dein Handy raus, wenn du dich am Laptop abmeldest)
+- **Test:** `test.fail` «Abmelden beendet nur das eigene Gerät» in `tests/PROJ-2-logout.spec.ts`
+
+#### BUG-2: Neues Passwort ohne altes Passwort für jede angemeldete Sitzung — BEHOBEN 2026-11-10 (Oberfläche)
+- **Behebung:** Beim Einlösen eines gültigen Reset-Links setzt `/auth/bestaetigen` einen kurzlebigen Marker (Cookie `tt-recovery`, HttpOnly, SameSite=Lax, 15 Minuten, Secure in Produktion). `/passwort-neu` verlangt Marker und Sitzung, sonst geht es auf «Link nicht mehr gültig» (mit Sitzung weiter auf die Startseite). Nach dem Speichern führt der Browser über die neue Route `/auth/abschliessen`, die den Marker löscht. Hilfsdatei: `src/lib/auth/recovery.ts`.
+- **Grenze:** Das schützt die Oberfläche. Wer ein gestohlenes Sitzungs-Cookie hat, könnte `updateUser` weiterhin direkt an Supabase senden. Dagegen hilft nur die Einstellung «Secure password change» im Supabase-Dashboard (verlangt kürzliche Anmeldung); sie ist nicht gesetzt.
+- **Severity:** Low (Härtung)
+- **Steps to Reproduce:**
+  1. Normal angemeldet (ohne Reset-Link) `/passwort-neu` öffnen
+  2. Erwartet: Die Seite ist nur nach einem Reset-Link nötig; «Passwort ändern im eingeloggten Zustand» ist Out of Scope
+  3. Tatsächlich: Sie ist erreichbar, und ein Passwort mit mindestens 10 Zeichen lässt sich ohne das alte setzen. Wer ein Sitzungs-Cookie in die Hände bekommt, könnte damit das Konto übernehmen.
+- **Hinweis:** Supabase bietet dafür eine Einstellung, die beim Passwortwechsel eine kürzliche Anmeldung verlangt («Secure password change»); alternativ die Seite nur nach einer Wiederherstellungs-Sitzung zulassen.
+- **Priority:** Fix in next sprint (für eine private App mit einem Konto geringes Risiko)
+
+### Manuell zu prüfen (braucht eine echte Mail und dein Konto)
+1. Lokal `npm run dev`, `http://localhost:3000/login` → «Passwort vergessen?» → E-Mail eingeben.
+2. Mail abwarten (englisch, evtl. im Spam). Link im **selben Browser** öffnen.
+3. Erwartet: Du landest auf `/passwort-neu`, setzt ein Passwort mit mindestens 10 Zeichen und bist danach auf der Startseite angemeldet.
+4. Auf einem anderen Gerät mit dem neuen Passwort anmelden.
+5. Einen alten oder schon benutzten Link nochmals öffnen: «Dieser Link ist nicht mehr gültig».
+
+### Nicht geprüft
+- **Firefox und Safari:** Die Browser-Downloads von Playwright sind blockiert (veraltete Sperre `ms-playwright/__dirlock`). Nur Chrome getestet.
+- **Echte Geräte** (Handy-Tastatur, Passwortmanager, Home-Indikator) und der Reset-Link per echter Mail (siehe oben).
+- **Produktiv-Umgebung:** Der Seitenschutz ist noch nicht gepusht und deshalb nicht auf Vercel geprüft.
+
+### Tests
+- **Unit und Integration (Vitest):** 114 von 114 grün (Prüfregeln, Fehlermeldungen, Zieladressen, Formulare, Passwortfeld, Abmelden-Knopf, Zugriffsentscheidung, Türsteher, Einlöse-Punkt inkl. Reset-Marker)
+- **E2E (Playwright, Chrome):** `tests/PROJ-2-anmeldung.spec.ts` und `tests/PROJ-2-logout.spec.ts` (3 Tests, alle normal). Gesamtlauf nach den Fixes: 100 Tests grün (Projekte setup, chromium, logout; die 3 bekannten Lücken aus PROJ-11 bleiben als `test.fail` markiert). Der Abmelden-Test darf nicht mit `--repeat-each` laufen, weil Abmelden alle Sitzungen beendet und parallele Wiederholungen sich stören.
+- **Neue Test-Infrastruktur:** `tests/auth.setup.ts` meldet das Testkonto einmal an (`.env.test.local`, Vorlage `.env.test.local.example`) und speichert die Anmeldung in `tests/.auth/` (von Git ausgeschlossen). Ohne die Zugangsdaten überspringen sich alle Tests mit Anmeldung. Das Projekt `logout` läuft zuletzt, weil Abmelden alle Sitzungen beendet. `playwright.config.ts` kennt dazu die Umgebungsvariablen `PW_BASE_URL`, `PW_SERVER_COMMAND`, `PW_CHANNEL` und `PW_REPORTER`.
+- Die PROJ-1- und PROJ-11-Suiten laufen jetzt mit der gespeicherten Anmeldung (alle 46 Tests unverändert grün).
+- `npm run lint`: 0 Fehler, `tsc`: sauber.
+
+### Summary
+- **Acceptance Criteria:** 26 von 30 geprüft und erfüllt; 4 brauchen eine echte Mail (Link öffnen, Passwort speichern, anderes Gerät, Redirect-URL) und sind in «Manuell zu prüfen» beschrieben
+- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low), beide am 2026-11-10 behoben und per Test abgesichert
+- **Security:** Keine kritischen Probleme. Der Seitenschutz hält allen Umgehungsversuchen stand. Restrisiko BUG-2: Das Zurücksetzen ist nur in der Oberfläche gesperrt, nicht gegen direkte Aufrufe mit gestohlenem Cookie (siehe «Grenze»).
+- **Production Ready:** Fast. Keine offenen Fehler; der Reset-Ablauf mit echter Mail ist noch von Hand zu prüfen (der Ablauf läuft jetzt über den neuen Marker, also unbedingt testen).
+- **Recommendation:** Reset-Ablauf einmal von Hand testen, danach Status «Approved» und Deploy.
+
 
 ## Deployment
 _To be added by /deploy_

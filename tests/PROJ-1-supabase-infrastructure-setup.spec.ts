@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { hasTestUser, SKIP_REASON } from './helpers/env'
 
 // PROJ-1: Supabase Infrastructure Setup
+// Seit PROJ-2 sind alle Seiten geschützt: Die Tests laufen mit der gespeicherten Anmeldung des Testkontos.
+test.skip(!hasTestUser, SKIP_REASON)
 
 // Prüft, ob ein Service-Role-Schlüssel oder ein Token ausgeliefert wird. Der Variablenname
 // NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY darf vorkommen (die Konfigurationsprüfung lehnt ihn ab),
