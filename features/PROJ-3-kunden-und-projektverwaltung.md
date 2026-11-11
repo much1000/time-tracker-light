@@ -1,6 +1,6 @@
 # PROJ-3: Kunden- und Projektverwaltung
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -305,7 +305,50 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - **Supabase-Hinweis (nicht aus PROJ-3):** «Leaked Password Protection» ist ausgeschaltet (Auth-Einstellung, Free-Plan).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-11-11 · **Umgebung:** Produktionsbuild (`next start`), Chrome, echte Supabase-Datenbank, Testkonto · **Ergebnis:** Alle Akzeptanzkriterien erfüllt (Ausnahmen siehe unten), 2 Medium-Fehler, 0 Critical/High.
+
+### Automatische Tests
+- **Vitest:** 157 von 157 grün.
+- **Playwright (Chrome, Projekte setup, chromium, logout):** 125 von 125 grün. Neu: `tests/PROJ-3-kunden-datenbank.spec.ts` (4 Tests) und `tests/PROJ-3-kunden-qa.spec.ts` (22 Tests, darunter 2 erwartete Fehlschläge für die offenen Fehler, markiert mit `test.fail`). Alle 97 älteren Tests (PROJ-1, PROJ-2, PROJ-11) laufen unverändert grün (Regression).
+- **Nicht geprüft:** Firefox und Safari (nicht installiert, WebKit fehlt auf diesem Rechner), echtes Handy, Screenreader von Hand. Der Leerzustand und der Ladefehler sind nur per Komponententest geprüft, weil das Testkonto schon Daten hat und die Datenbank sich nicht abschalten lässt.
+
+### Akzeptanzkriterien
+| Bereich | Ergebnis | Nachweis |
+|---|---|---|
+| Navigation und Seitenschutz (3) | bestanden | E2E: Eintrag «Kunden» aktiv auf `/kunden` und darunter, Umleitung zur Anmeldung ohne Sitzung, «Kunde nicht gefunden» für unbekannte, fremde und ungültige Kennungen (auch SQL-Zeichen) |
+| Kundenliste (5) | bestanden | E2E: Karten mit Kürzel, Name, Projektzahl, eingeklapptes Archiv, Karte öffnet Kundenseite. Leerzustand und Ladefehler: nur Komponententest |
+| Kunde anlegen (7) | bestanden | E2E gegen die Datenbank: Formular, «Allgemein» entsteht, Pflicht, Zeichen, Länge 2 bis 10, Name über 100, Kleinbuchstaben werden gross gespeichert, Duplikate mit Hinweis am Feld |
+| Kundenseite und Projekte (8) | bestanden | E2E: Projekt mit Nummer, Duplikat pro Kunde, «Allgemein» bei mehreren Kunden, gleiche Nummer mehrfach (SQL), Archiv, Hinweis ohne aktives Projekt per Komponententest |
+| Bearbeiten (3) | bestanden | E2E: Werte vorausgefüllt, eigener Eintrag zählt nicht als Duplikat, Änderung ohne Neuladen sichtbar und nach Neuladen erhalten, Abbrechen verwirft |
+| Archivieren und Reaktivieren (8) | bestanden | E2E und SQL: Projekt archivieren, Kunde archiviert alle Projekte, Reaktivieren aktiviert nur die mit dem Kunden archivierten, Projekt unter archiviertem Kunden nicht reaktivierbar (Knopf deaktiviert, Hinweis), kein Knopf «Löschen» |
+| Bedienung, Darstellung, Zugänglichkeit (6) | teilweise | Doppelklick, Enter, Titel, 375/768/1440 px, 44-px-Ziele, Hell und Dunkel (axe, WCAG AA, 0 Verstösse) bestanden. **Fehler werden am Feld nicht als `role=alert` angesagt** (siehe BUG-3). 320 px: Kundenseite bestanden, **Liste nicht** (BUG-2) |
+| Datenschutz und Sicherheit (3) | bestanden | Siehe Sicherheitsprüfung |
+
+### Randfälle
+Bestanden: Doppelklick auf «Speichern» (ein Kunde), Duplikat bei zwei Geräten (Datenbank erzwingt), Kunde und «Allgemein» nur zusammen (Funktion, SQL), Sonderzeichen, Umlaute und Emojis im Namen, ungültige Kennung in der Adresse, Timer-Archivierung (noch kein Timer). Fehler: sehr langer Name am Handy (BUG-2).
+
+### Sicherheitsprüfung (Red Team)
+- **Fremdzugriff:** Mit einem zweiten echten Nutzer sieht dieser 0 Zeilen, kann nichts ändern, nichts archivieren und kein Projekt unter einen fremden Kunden legen (SQL, zurückgerollt).
+- **Ohne Anmeldung:** Der öffentliche Schlüssel allein darf nichts lesen und nichts schreiben (Tabellen und Funktionen, SQL und E2E).
+- **Direkt an der Oberfläche vorbei** (eigene Sitzung, REST): Löschen verweigert (Kunden und Projekte), Besitzer beim Anlegen überschrieben, Besitzer beim Ändern wirkungslos, ungültige Werte (Kürzel klein oder zu kurz, leerer oder gepolsterter oder zu langer Name, Nummer über 30, fehlender Name) mit 400 abgelehnt.
+- **Eingaben:** `<img onerror>`, SQL-Zeichen und Emojis werden als Text gespeichert und angezeigt, kein Skript läuft, kein Dialog erscheint.
+- **Geheimnisse:** Keine Schlüssel mit Rolle ausser `anon`, keine Tokens in ausgelieferten Seiten oder Antworten, keine Konsolenfehler.
+- **Offen (ausserhalb PROJ-3):** Supabase «Leaked Password Protection» ist ausgeschaltet.
+
+### Fehler
+- **BUG-1 (Medium): Fokus geht nach dem Schliessen eines Formulars verloren.** Schritte: `/kunden`, «Neuer Kunde» per Tastatur öffnen, Escape. Erwartet: Fokus wieder auf «Neuer Kunde». Ist: Fokus liegt auf der Seite, nicht auf dem Knopf (Tastaturnutzer müssen sich neu hineintabben). Ursache: Die Formulare werden über Zustand geöffnet und haben keinen eigenen Auslöser, an den Radix den Fokus zurückgibt. Gilt für alle Formulare und die Rückfrage. Abgesichert durch `test.fail` «BUG-1».
+- **BUG-2 (Medium): Sehr langer Name ohne Leerzeichen sprengt die Kundenkarte bei 320 px.** Schritte: Kunde mit 90-stelligem Namen ohne Leerzeichen anlegen, Liste bei 320 px öffnen. Erwartet: Umbruch (Spec-Randfall). Ist: Karte wird 976 px breit, horizontales Scrollen. Ursache: Die Rasterzelle in der Liste darf nicht unter ihre Inhaltsbreite schrumpfen (`min-w-0` fehlt, `break-words` wirkt nicht). Die Kundenseite ist in Ordnung. Abgesichert durch `test.fail` «BUG-2».
+- **BUG-3 (Low): Feldfehler sind nicht `role=alert`.** Hinweise am Feld («Bitte gib ein Kürzel ein.») sind sichtbare Texte, per `aria-describedby` mit dem Feld verbunden, das Feld hat `aria-invalid`, und der Fokus springt ins erste fehlerhafte Feld, sodass Screenreader sie vorlesen. Die Spec verlangt aber `role=alert`. Nur Meldungen oberhalb des Formulars und Ladefehler sind `role=alert`. Entscheidung offen: Spec lockern (die jetzige Lösung ist üblich und barrierefrei) oder `role=alert` ergänzen.
+
+### Beobachtung
+Ein Testlauf stockte einmal mehrere Minuten (Seite blieb auf «Wird geladen»), der Wiederholungslauf war nach 53 s grün. Wahrscheinlich eine vorübergehende Verzögerung der Verbindung zu Supabase; nicht reproduziert.
+
+### Testdaten
+Die Tests legen Kunden mit Kürzel `T-…` an und archivieren sie. Bei abgebrochenen Läufen blieben einzelne aktiv und wurden per SQL archiviert. Es gibt kein Löschen; die Testkunden bleiben im Archiv des Testkontos.
+
+### Production-Ready
+**JA**, wenn die Medium-Fehler akzeptiert werden. Es gibt keine Critical- oder High-Fehler. Empfehlung: BUG-1 und BUG-2 vor `/deploy` beheben (kleine Änderungen), BUG-3 per Entscheidung klären.
 
 ## Deployment
 _To be added by /deploy_
