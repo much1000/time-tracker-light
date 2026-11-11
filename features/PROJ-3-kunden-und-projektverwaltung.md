@@ -1,6 +1,6 @@
 # PROJ-3: Kunden- und Projektverwaltung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -360,4 +360,9 @@ Die Tests legen Kunden mit Kürzel `T-…` an und archivieren sie. Bei abgebroch
 **JA.** Keine offenen Fehler. Status: **Approved**.
 
 ## Deployment
-_To be added by /deploy_
+- **Produktions-URL:** https://time-tracker-light.vercel.app (Seiten `/kunden` und `/kunden/<id>`)
+- **Deployed:** 2026-11-11 (Push auf `main`, Vercel-Auto-Deploy), Tag `v1.3.0-PROJ-3`
+- **Datenbank:** Migration `supabase/migrations/20261111000000_customers_projects.sql` war vor dem Push auf dem Supabase-Projekt `time-tracker-light` angewendet (es gibt nur diese eine Datenbank für Entwicklung und Produktion).
+- **Neue Umgebungsvariablen:** keine.
+- **Prüfung in Produktion:** `/kunden` leitet ohne Anmeldung auf die Anmeldung um. Die PROJ-3-Tests (`PROJ-3-kunden-datenbank`, `PROJ-3-kunden-qa`, 26 Tests inkl. Fokus, 320 px, axe Hell und Dunkel, direkter Datenbankzugriff) laufen gegen die Produktions-URL grün.
+- **Nicht geprüft:** Fehlerverfolgung (Sentry) und Lighthouse sind weiterhin nicht eingerichtet (wie bei den vorigen Features).
