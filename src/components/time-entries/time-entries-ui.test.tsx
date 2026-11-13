@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryCustomersRepository } from '@/lib/customers/in-memory-repository'
-import { MockTimeEntriesRepository } from '@/lib/time-entries/mock-repository'
+import { InMemoryTimeEntriesRepository } from '@/lib/time-entries/in-memory-repository'
 import { todayInZurich } from '@/lib/time-entries/zurich'
 import { TodayView } from './today-view'
 
 let customers: InMemoryCustomersRepository
-let entries: MockTimeEntriesRepository
+let entries: InMemoryTimeEntriesRepository
 
 vi.mock('@/lib/time-entries', async () => {
   const actual = await vi.importActual<typeof import('@/lib/time-entries/errors')>(
@@ -15,7 +15,6 @@ vi.mock('@/lib/time-entries', async () => {
   return {
     ...actual,
     getTimeEntriesRepository: () => entries,
-    resetPreviewEntries: () => entries.reset(),
   }
 })
 vi.mock('next/link', () => ({
@@ -29,7 +28,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 beforeEach(() => {
   customers = new InMemoryCustomersRepository(0)
-  entries = new MockTimeEntriesRepository(customers, null, 0)
+  entries = new InMemoryTimeEntriesRepository(customers, 0)
   window.matchMedia = vi.fn().mockReturnValue({
     matches: false,
     addEventListener: vi.fn(),

@@ -3,9 +3,17 @@ import { resolve } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { hasTestUser, NO_LOGIN, SKIP_REASON } from './helpers/env'
 
-// PROJ-4 (Frontend): Zeiterfassung auf der Startseite. Die Zeiteinträge liegen in der Vorschau nur im
-// Browser (localStorage), Kunden und Projekte sind echt. Der Test legt einen Kunden «T-…» an und
-// archiviert ihn am Ende (es gibt kein Löschen).
+// PROJ-4: Zeiterfassung auf der Startseite gegen die echte Datenbank. Der Test legt einen Kunden «T-…»
+// an und archiviert ihn am Ende. Es gibt kein Löschen: Die Testeinträge bleiben in der Tabelle und werden
+// nach dem Lauf per SQL entfernt (nur Einträge auf Kunden mit Kürzel «T-…», siehe Spec, Abschnitt Tests).
+
+try {
+  ;(process as unknown as { loadEnvFile: (path: string) => void }).loadEnvFile(
+    resolve(process.cwd(), '.env.local')
+  )
+} catch {
+  // Datei fehlt: Der Test mit direktem Datenbankzugriff wird übersprungen.
+}
 
 const AXE = readFileSync(resolve(process.cwd(), 'node_modules/axe-core/axe.min.js'), 'utf8')
 const run = Date.now().toString(36).slice(-5).toUpperCase()
@@ -34,7 +42,7 @@ async function pickCustomer(page: Page) {
   await expect(page.getByLabel('Projekt')).toContainText('Allgemein')
 }
 
-// Jeder Test startet mit leerem Browser-Speicher: Ohne früheren Eintrag sind Kunde und Projekt leer.
+// Ohne früheren Eintrag sind Kunde und Projekt leer; dann wird der Testkunde gewählt.
 async function openForm(page: Page, options: { pick?: boolean } = { pick: true }) {
   await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
@@ -42,37 +50,6 @@ async function openForm(page: Page, options: { pick?: boolean } = { pick: true }
   if (options.pick !== false && (await page.getByLabel('Kunde').textContent())?.includes('Kunde wählen')) {
     await pickCustomer(page)
   }
-}
-
-// Legt einen Vorschau-Eintrag für heute im Browser-Speicher an, bevor die Seite lädt.
-async function seedEntry(page: Page) {
-  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Zurich' }).format(new Date())
-  await page.addInitScript(
-    ([key, date, code, name]) => {
-      if (localStorage.getItem(key)) return
-      localStorage.setItem(
-        key,
-        JSON.stringify([
-          {
-            id: 'seed-1',
-            projectId: 'seed-project',
-            customerId: 'seed-customer',
-            customerCode: code,
-            customerName: name,
-            projectName: 'Allgemein',
-            date,
-            durationMinutes: 90,
-            billableMinutes: 90,
-            startTime: null,
-            endTime: null,
-            description: 'Konzept überarbeitet',
-            createdAt: new Date().toISOString(),
-          },
-        ])
-      )
-    },
-    ['tt-preview-time-entries', today, CODE, NAME]
-  )
 }
 
 test.describe('ohne Anmeldung', () => {
@@ -223,7 +200,6 @@ test.describe('mit Anmeldung', () => {
   for (const width of [320, 375, 768, 1440]) {
     test(`AC: Layout bei ${width} px: kein horizontales Scrollen, Bedienelemente mindestens 44 px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
-      await seedEntry(page)
       await page.goto('/')
       await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
       expect(await noHorizontalScroll(page)).toBe(true)
@@ -271,7 +247,6 @@ test.describe('mit Anmeldung', () => {
     test(`AC: Barrierefreiheit (axe, WCAG AA) im ${scheme === 'dark' ? 'Dunkel' : 'Hell'}modus: Startseite und Formular`, async ({ page }) => {
       await page.addInitScript((value) => localStorage.setItem('theme', value), scheme)
       await page.emulateMedia({ colorScheme: scheme })
-      await seedEntry(page)
       await page.goto('/')
       await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(scheme === 'dark')
@@ -286,6 +261,89 @@ test.describe('mit Anmeldung', () => {
       await page.keyboard.press('Escape')
     })
   }
+
+  test('AC: Einträge liegen in der Datenbank: ein zweites Gerät (neuer Browser) sieht sie, die Vorbelegung gilt geräteübergreifend', async ({ browser }) => {
+    const context = await browser.newContext({ storageState: 'tests/.auth/user.json', viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    await page.goto('/')
+    await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
+    await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
+    await expect(page.getByLabel('Kunde')).toContainText(CODE)
+    await expect(page.getByLabel('Projekt')).toContainText('Allgemein')
+    await context.close()
+  })
+
+  test('Sicherheit: direkter Zugriff auf die Datenbank mit eigener Sitzung umgeht die Regeln nicht', async ({ page, request }) => {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    test.skip(!base || !anon, 'Supabase-Umgebungsvariablen fehlen im Testprozess')
+    await page.goto('/')
+    const cookies = await page.context().cookies()
+    const raw = cookies.filter((c) => /auth-token/.test(c.name)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => c.value).join('')
+    const session = JSON.parse(Buffer.from(decodeURIComponent(raw).replace(/^base64-/, ''), 'base64url').toString())
+    const headers = {
+      apikey: anon as string,
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    }
+    const rest = `${base}/rest/v1`
+    const zurich = (offsetMs: number) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Zurich' }).format(new Date(Date.now() + offsetMs))
+    const today = zurich(0)
+    const tomorrow = zurich(26 * 3600 * 1000)
+
+    const customer = await (await request.get(`${rest}/customers?select=id,owner_id&code=eq.${CODE}`, { headers })).json()
+    const project = await (await request.get(`${rest}/projects?select=id&customer_id=eq.${customer[0].id}&name=eq.Allgemein`, { headers })).json()
+    const projectId: string = project[0].id
+    const ownerId: string = customer[0].owner_id
+    const entry = { project_id: projectId, entry_date: today, duration_minutes: 30, billable_minutes: 30 }
+
+    // Gültig: eigener Eintrag, der Besitzer wird von der Datenbank gesetzt (auch bei gefälschtem Wert)
+    const ok = await request.post(`${rest}/time_entries`, { headers, data: { ...entry, owner_id: '17bb69ca-f2e7-4b05-9ee4-e08c3ac67263' } })
+    expect(ok.status()).toBe(201)
+    const [created] = await ok.json()
+    expect(created.owner_id).toBe(ownerId)
+
+    // Löschen ist nicht erlaubt
+    expect([401, 403]).toContain((await request.delete(`${rest}/time_entries?id=eq.${created.id}`, { headers })).status())
+
+    // Besitzer ändern: wirkungslos
+    const patch = await request.patch(`${rest}/time_entries?id=eq.${created.id}`, { headers, data: { owner_id: '17bb69ca-f2e7-4b05-9ee4-e08c3ac67263' } })
+    if (patch.ok()) expect((await patch.json())[0]?.owner_id ?? ownerId).toBe(ownerId)
+
+    // Ungültige Werte direkt an die Datenbank: abgelehnt
+    const bad: Record<string, unknown>[] = [
+      { ...entry, entry_date: tomorrow },
+      { ...entry, duration_minutes: 0 },
+      { ...entry, duration_minutes: 1441, billable_minutes: 0 },
+      { ...entry, billable_minutes: 31 },
+      { ...entry, billable_minutes: -1 },
+      { ...entry, start_time: '08:00' },
+      { ...entry, start_time: '10:00', end_time: '09:00' },
+      { ...entry, start_time: '08:00', end_time: '09:00' },
+      { ...entry, description: 'x'.repeat(1001) },
+      { ...entry, description: '' },
+      { ...entry, description: ' Rand ' },
+      { ...entry, project_id: '00000000-0000-4000-8000-000000000000' },
+      { ...entry, project_id: undefined },
+    ]
+    for (const body of bad) {
+      const response = await request.post(`${rest}/time_entries`, { headers, data: body })
+      expect(response.status(), JSON.stringify(body)).toBeGreaterThanOrEqual(400)
+      expect(response.status(), JSON.stringify(body)).toBeLessThan(500)
+    }
+
+    // Ohne Anmeldung (nur öffentlicher Schlüssel): nichts lesbar, nichts schreibbar
+    const anonHeaders = { apikey: anon as string, 'Content-Type': 'application/json' }
+    expect([401, 403]).toContain((await request.get(`${rest}/time_entries?select=id`, { headers: anonHeaders })).status())
+    expect([401, 403]).toContain((await request.post(`${rest}/time_entries`, { headers: anonHeaders, data: entry })).status())
+  })
+
+  test('Sicherheit: HTML und SQL-Zeichen in der Beschreibung sind in der Datenbank reiner Text (nach Neuladen)', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByText(/drop table time_entries/)).toBeVisible()
+    expect(await page.locator('img[src="x"]').count()).toBe(0)
+  })
 
   test('AC: archivierter Kunde erscheint nicht mehr in der Auswahl', async ({ page }) => {
     await page.goto('/kunden')
@@ -307,11 +365,5 @@ test.describe('mit Anmeldung', () => {
       await expect(dialog.getByText(/Lege zuerst einen Kunden an/)).toBeVisible()
     }
     await page.keyboard.press('Escape')
-  })
-
-  test('Aufräumen: Vorschau-Einträge zurücksetzen', async ({ page }) => {
-    await page.goto('/')
-    await page.getByRole('button', { name: 'Zurücksetzen' }).click()
-    await expect(page.getByText('Heute noch nichts erfasst')).toBeVisible()
   })
 })

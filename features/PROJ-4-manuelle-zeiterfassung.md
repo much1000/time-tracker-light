@@ -282,6 +282,35 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - **Nicht geprüft:** Firefox und Safari, echtes Handy mit Bildschirmtastatur, Screenreader von Hand. Das gehört in `/qa`.
 - Die E2E-Tests legen Testkunden `T-…` an und archivieren sie. Die Zeiteinträge der Tests liegen nur im Browser-Speicher und belasten die Datenbank nicht.
 
+## Implementation Notes (Backend)
+**Stand:** 2026-11-13. Die Oberfläche läuft jetzt gegen die echte Datenbank (Supabase-Projekt `time-tracker-light`). Der Platzhalter im Browser samt Hinweis «Vorschau» und Knopf «Zurücksetzen» ist entfernt.
+
+### Datenbank
+- **Migration:** `supabase/migrations/20261113000000_time_entries.sql`, am 2026-11-13 mit Freigabe des Nutzers auf Supabase angewendet.
+- **Tabelle `time_entries`** mit Row Level Security. Policies nur für `authenticated` und nur auf eigene Zeilen (lesen, anlegen, ändern). **Keine Löschregel, und das Recht `DELETE` fehlt ganz.** `anon` hat keinerlei Rechte.
+- **Besitzer:** Trigger setzt `owner_id` beim Anlegen aus der Anmeldung (ein mitgeschickter Wert wird überschrieben) und hält ihn beim Ändern fest. Ohne Anmeldung wird nichts angelegt.
+- **Projekt gehört dem Besitzer:** zusammengesetzter Fremdschlüssel (Projekt, Besitzer), dafür neuer Eindeutigkeits-Schlüssel `projects_id_owner_key` auf `projects`. `ON DELETE RESTRICT`.
+- **Grenzen in der Datenbank:** Dauer 1 bis 1440 Minuten, verrechenbar 0 bis zur Dauer, Start und Ende nur zusammen und minutengenau, Ende nach Start, Dauer = Ende minus Start, Beschreibung leer (NULL) oder 1 bis 1000 Zeichen ohne Leerzeichen am Rand.
+- **Datum nicht in der Zukunft** nach der Uhr in Zürich (Trigger beim Anlegen und beim Ändern des Datums, Fehler `date_in_future`).
+- **Nur aktive Ziele beim Anlegen:** Ein neuer Eintrag auf ein archiviertes Projekt oder einen archivierten Kunden wird abgelehnt (`target_archived`), ein unbekanntes oder fremdes Projekt ebenfalls (`target_not_found`). Bereits erfasste Einträge bleiben nach dem Archivieren bearbeitbar; verschieben lassen sie sich nur auf ein aktives Projekt (für PROJ-5).
+- **Indizes:** Besitzer und Datum, Besitzer und Anlegezeit (für die Vorbelegung), Projekt.
+
+### Code
+- `src/lib/time-entries/supabase-repository.ts`: `SupabaseTimeEntriesRepository` setzt dieselbe Schnittstelle `TimeEntriesRepository` um. Ein Tag wird mit Projekt und Kunde in einer Abfrage geladen (eingebettete Beziehungen), die Auswahl (aktive Kunden mit aktiven Projekten) ebenfalls. Datenbankfehler werden zu `TimeEntryError` (Ziel archiviert, Ziel nicht gefunden, Datum in der Zukunft, Sitzung abgelaufen, nicht erreichbar).
+- `src/lib/supabase/db-errors.ts`: gemeinsame Erkennung von Netzwerk- und Sitzungsfehlern, jetzt auch von der Kunden-Datenschicht (PROJ-3) genutzt.
+- `src/lib/time-entries/index.ts` wählt jetzt Supabase. **Entfernt:** `preview-notice.tsx`, Platzhalter-Speicher, `resetPreviewEntries`. Der Nachbau im Speicher lebt als reines Test-Double in `in-memory-repository.ts`.
+- Keine API-Routen (wie im Tech Design: direkter Zugriff über Supabase, geschützt durch RLS).
+
+### Abweichung vom Tech Design
+- **Laden im Browser statt im Server**, wie schon bei PROJ-3 (Schutz liegt in der Datenbank, nur der erste Anblick wäre schneller).
+
+### Tests
+- **Datenbankregeln direkt per SQL** (in einer zurückgerollten Transaktion, zwei echte Nutzer-IDs, Rolle `authenticated` bzw. `anon`): 31 Prüfungen wie erwartet. Anlegen, Besitzer nicht fälschbar und unveränderlich, Datum in der Zukunft, Dauer 0 und 1441, verrechenbar über Dauer und negativ, Start ohne Ende, Ende vor Start, Dauer passt nicht zu den Uhrzeiten, Sekunden, Beschreibung 1001, leer und mit Rand, Mehrzeiliges und HTML als Text, Löschen verweigert, Buchung auf archivierten Kunden und archiviertes Projekt abgelehnt, unbekanntes Projekt abgelehnt, bestehender Eintrag nach Archivieren bearbeitbar, Verschieben auf archiviertes Projekt abgelehnt, Projekt nicht löschbar, zweiter Nutzer sieht 0 Zeilen und kann weder ändern noch auf ein fremdes Projekt buchen, `anon` ohne Zugriff.
+- **Vitest:** 228 von 228 grün (neu: 8 Tests der Supabase-Datenschicht zu Übersetzung, Sortierung, Auswahl, Vorbelegung und Fehlerarten). `tsc` sauber, Lint ohne Fehler.
+- **E2E gegen die echte Datenbank** (`tests/PROJ-4-zeiterfassung.spec.ts`, 21 Tests, Produktionsbuild, Chrome): zusätzlich zu den Oberflächentests Bestand nach Neuladen und auf einem zweiten Gerät (neuer Browser inkl. Vorbelegung), direkter Zugriff mit eigener Sitzung (Besitzer gefälscht, Löschen, 13 ungültige Werte, `anon`). Alle 145 E2E-Tests (inkl. Regression) grün.
+- **Testdaten:** Die E2E-Tests legen Einträge auf Testkunden `T-…` an. Es gibt kein Löschen; die Einträge bleiben in der Tabelle. Sie müssen nach einem Lauf von Hand entfernt werden (nur Einträge auf Kunden mit Kürzel `T-…`), sonst fehlt am nächsten Tag der Leerzustand und «Heute» zeigt Testeinträge.
+- **Supabase-Hinweise:** «Leaked Password Protection» ist ausgeschaltet (nicht aus PROJ-4). Information «Unindexed foreign keys»: Der zusammengesetzte Fremdschlüssel `(project_id, owner_id)` (und der entsprechende in `projects`) hat keinen eigenen Index; bei dieser Datenmenge unkritisch, ein Index auf `project_id` besteht.
+
 ## QA Test Results
 _To be added by /qa_
 

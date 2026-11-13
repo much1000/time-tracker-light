@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryCustomersRepository } from '@/lib/customers/in-memory-repository'
 import { formatDuration, formatTime, parseDuration, parseTime } from './duration'
 import { describeTimeEntryError, TimeEntryError } from './errors'
-import { MockTimeEntriesRepository } from './mock-repository'
+import { InMemoryTimeEntriesRepository } from './in-memory-repository'
 import {
   findOverlaps,
   sumEntries,
@@ -262,15 +262,15 @@ describe('describeTimeEntryError', () => {
   })
 })
 
-describe('MockTimeEntriesRepository', () => {
+describe('InMemoryTimeEntriesRepository', () => {
   let customers: InMemoryCustomersRepository
-  let repo: MockTimeEntriesRepository
+  let repo: InMemoryTimeEntriesRepository
   let projectId: string
   let customerId: string
 
   beforeEach(async () => {
     customers = new InMemoryCustomersRepository(0)
-    repo = new MockTimeEntriesRepository(customers, null, 0)
+    repo = new InMemoryTimeEntriesRepository(customers, 0)
     const customer = await customers.createCustomer({ code: 'MUS', name: 'Muster AG' })
     customerId = customer.id
     const detail = await customers.getCustomer(customer.id)

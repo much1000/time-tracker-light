@@ -199,7 +199,8 @@ test.describe('PROJ-11: Navigation und Layout', () => {
     await page.goto('/')
     const tabBar = page.getByRole('navigation', { name: 'Hauptnavigation' })
     // Seit PROJ-4 lädt die Startseite Daten: erst scrollen, wenn der Inhalt vollständig da ist.
-    await expect(page.getByText('Heute noch nichts erfasst')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Heute' })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Wird geladen' })).toHaveCount(0)
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     const bar = await tabBar.boundingBox()

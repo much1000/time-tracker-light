@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isNetworkFailure, isSessionFailure, type DbError } from '@/lib/supabase/db-errors'
 import { RepositoryError } from './errors'
 import type { CustomersRepository } from './repository'
 import type {
@@ -34,13 +35,6 @@ interface ProjectRow {
   archived_with_customer: boolean
   created_at: string
   updated_at: string
-}
-
-interface DbError {
-  code?: string
-  message?: string
-  details?: string
-  status?: number
 }
 
 const CUSTOMER_COLUMNS = 'id, code, name, archived, archived_at, created_at, updated_at'
@@ -89,29 +83,6 @@ function byText(a: string, b: string): number {
 // Maskiert Platzhalter von ilike, damit nur auf Gleichheit (ohne Gross-/Kleinschreibung) geprüft wird.
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`)
-}
-
-function isNetworkFailure(error: DbError): boolean {
-  const message = (error.message ?? '').toLowerCase()
-  return (
-    error.status === 0 ||
-    (error.status !== undefined && error.status >= 500) ||
-    message.includes('failed to fetch') ||
-    message.includes('networkerror') ||
-    message.includes('network request failed') ||
-    message.includes('fetch failed')
-  )
-}
-
-function isSessionFailure(error: DbError): boolean {
-  const message = (error.message ?? '').toLowerCase()
-  return (
-    error.status === 401 ||
-    error.code === 'PGRST301' ||
-    error.code === '28000' ||
-    message.includes('jwt') ||
-    message.includes('not_authenticated')
-  )
 }
 
 export class SupabaseCustomersRepository implements CustomersRepository {

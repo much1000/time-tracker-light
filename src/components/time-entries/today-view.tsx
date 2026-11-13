@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/customers/load-states'
 import { EntryRow } from '@/components/time-entries/entry-row'
-import { PreviewNotice } from '@/components/time-entries/preview-notice'
 import { TimeEntryFormDialog } from '@/components/time-entries/time-entry-form-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,8 +39,6 @@ export function TodayView() {
           Zeit erfassen
         </Button>
       </div>
-
-      <PreviewNotice onReset={reload} />
 
       {state.status === 'loading' && (
         <div role="status" aria-label="Wird geladen" className="space-y-3">

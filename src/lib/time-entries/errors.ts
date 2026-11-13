@@ -3,6 +3,7 @@
 export type TimeEntryErrorKind =
   | 'target-archived'
   | 'target-not-found'
+  | 'date-in-future'
   | 'session'
   | 'unreachable'
   | 'unknown'
@@ -24,6 +25,8 @@ export function describeTimeEntryError(error: unknown): string {
         return 'Dieses Projekt ist archiviert. Wähle ein anderes Projekt oder reaktiviere es unter «Kunden».'
       case 'target-not-found':
         return 'Dieses Projekt gibt es nicht mehr. Bitte lade die Seite neu.'
+      case 'date-in-future':
+        return 'Das Datum darf nicht in der Zukunft liegen.'
       case 'session':
         return 'Deine Anmeldung ist abgelaufen. Bitte melde dich neu an. Deine Eingabe bleibt erhalten.'
       case 'unreachable':

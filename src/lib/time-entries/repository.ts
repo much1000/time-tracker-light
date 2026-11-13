@@ -1,8 +1,8 @@
 import type { BookableCustomer, LastTarget, TimeEntry, TimeEntryInput } from './types'
 
 // Schnittstelle zur Datenhaltung für Zeiteinträge.
-// Die Oberfläche kennt nur diese Schnittstelle. Heute steht dahinter ein Platzhalter im Browser
-// (mock-repository.ts), `/backend` ersetzt ihn durch Supabase mit denselben Regeln.
+// Die Oberfläche kennt nur diese Schnittstelle. Dahinter steht Supabase (supabase-repository.ts),
+// Tests nutzen in-memory-repository.ts.
 // Alle Methoden werfen bei Fehlern einen TimeEntryError (siehe errors.ts).
 export interface TimeEntriesRepository {
   // Einträge eines Tages (Datum «2026-11-13»), nach Startzeit, sonst nach Anlegezeit sortiert.

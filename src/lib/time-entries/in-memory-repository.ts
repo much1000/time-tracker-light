@@ -9,64 +9,28 @@ import type {
 } from './types'
 import { todayInZurich } from './zurich'
 
-// PLATZHALTER nur für die Oberfläche (PROJ-4, Frontend). Die Zeiteinträge liegen im Browser dieses
-// Geräts und nicht in der Datenbank. `/backend` ersetzt diese Datei durch Supabase und löscht sie.
-// Kunden und Projekte kommen aus der echten Datenschicht von PROJ-3 (Supabase).
-
-export const MOCK_TIME_ENTRIES_KEY = 'tt-preview-time-entries'
-const SIMULATED_DELAY_MS = 120
-
-export interface StorageLike {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-  removeItem(key: string): void
-}
+// Test-Double: bildet die Regeln der Datenbank im Speicher nach (aktive Ziele, Datum). Wird nur in
+// Tests genutzt, die Oberfläche läuft gegen SupabaseTimeEntriesRepository. Kunden und Projekte kommen
+// aus einer CustomersRepository (in Tests die In-Memory-Variante).
 
 function byText(a: string, b: string): number {
   return a.localeCompare(b, 'de', { sensitivity: 'base' })
 }
 
-export class MockTimeEntriesRepository implements TimeEntriesRepository {
+export class InMemoryTimeEntriesRepository implements TimeEntriesRepository {
   private memory: TimeEntry[] = []
 
   constructor(
     private readonly customers: CustomersRepository,
-    private readonly storage: StorageLike | null,
-    private readonly delayMs: number = SIMULATED_DELAY_MS
+    private readonly delayMs: number = 0
   ) {}
 
   private read(): TimeEntry[] {
-    if (!this.storage) return this.memory
-    try {
-      const raw = this.storage.getItem(MOCK_TIME_ENTRIES_KEY)
-      if (!raw) return []
-      const parsed: unknown = JSON.parse(raw)
-      return Array.isArray(parsed) ? (parsed as TimeEntry[]) : []
-    } catch {
-      return []
-    }
+    return this.memory
   }
 
   private write(entries: TimeEntry[]): void {
-    if (!this.storage) {
-      this.memory = entries
-      return
-    }
-    try {
-      this.storage.setItem(MOCK_TIME_ENTRIES_KEY, JSON.stringify(entries))
-    } catch {
-      throw new TimeEntryError('unknown')
-    }
-  }
-
-  // Für den Knopf «Zurücksetzen» der Vorschau.
-  reset(): void {
-    this.memory = []
-    try {
-      this.storage?.removeItem(MOCK_TIME_ENTRIES_KEY)
-    } catch {
-      // nichts zu tun
-    }
+    this.memory = entries
   }
 
   private async tick(): Promise<void> {
