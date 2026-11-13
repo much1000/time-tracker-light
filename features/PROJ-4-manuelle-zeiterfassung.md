@@ -1,6 +1,6 @@
 # PROJ-4: Manuelle Zeiterfassung inkl. Nacherfassung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -125,7 +125,7 @@
 ## Open Questions
 - [ ] **Mehrere Einträge nacheinander (Nacherfassung eines ganzen Tages):** Genügt das erneute Öffnen mit vorbelegtem Kunden und Projekt, oder braucht es einen Knopf «Speichern und weiteren Eintrag»? Entscheidung beim Bau der Oberfläche.
 - [ ] **Untere Grenze beim Datum:** Heute keine (Nacherfassung beliebig weit zurück). Falls Tippfehler im Jahr auffallen sollen, könnte ein Hinweis bei Daten älter als ein Jahr ergänzt werden.
-- [ ] **Zeitzone:** Einzelner Nutzer in der Schweiz; Uhrzeiten werden als Wanduhrzeit gespeichert. Klärung der technischen Umsetzung in `/architecture`.
+- [x] **Zeitzone:** Entschieden in `/architecture`: «heute» und «nicht in der Zukunft» gelten nach der Zürcher Uhr, Uhrzeiten werden als Wanduhrzeit ohne Zeitzone gespeichert (vom Nutzer bestätigt: Einzelnutzer in der Schweiz).
 
 ## Decision Log
 
@@ -146,12 +146,112 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine Tabelle «Zeiteinträge» in Supabase, Zugriff direkt über Supabase ohne eigene API-Routen, wie PROJ-3 | Zugriffsregeln der Datenbank (Row Level Security) schützen die Daten; ein Server-Zwischenschritt würde nichts schützen | 2026-11-13 |
+| Ein Zeiteintrag gehört genau einem Projekt (nur die Projekt-ID); der Kunde ergibt sich über das Projekt | Eine einzige Verknüpfung, Umbenennen wirkt rückwirkend (Spec PROJ-3), kein Namens-Schnappschuss | 2026-11-13 |
+| Gespeichert werden Datum, Dauer und verrechenbare Dauer in ganzen Minuten; Start und Ende als optionale Uhrzeiten ohne Zeitzone | Ein einheitliches Modell für manuelle Einträge und den späteren Timer; Summen und Auswertungen rechnen nur mit Minuten | 2026-11-13 |
+| Konsistenz von Dauer und Uhrzeiten in der Datenbank erzwungen: Start und Ende nur zusammen, Ende nach Start, Dauer = Differenz | Verhindert widersprüchliche Einträge auch an der Oberfläche vorbei | 2026-11-13 |
+| «Heute» und «nicht in der Zukunft» gelten nach der Uhr in Zürich (Europe/Zurich), in Oberfläche und Datenbank gleich | Ein Nutzer in der Schweiz; unabhängig von der Zeitzone des Geräts (Reisen, falsche Geräteuhr) kein Streit zwischen Anzeige und Datenbank | 2026-11-13 |
+| Die Datenbank prüft das Datum (nicht in der Zukunft) und die Archivierung (Kunde und Projekt aktiv) beim Anlegen. Die Endzeit «nicht in der Zukunft» prüft nur die Oberfläche | Ein Eintrag, der gerade eben endet, soll nicht an einer Minute Uhrenabweichung scheitern | 2026-11-13 |
+| Überschneidungs-Hinweis nur in der Oberfläche (aus den Einträgen desselben Tages), nicht in der Datenbank | Spec: nur Hinweis, kein Verbot; Parallelarbeit bleibt möglich | 2026-11-13 |
+| Kunde und Projekt des zuletzt erfassten Eintrags (nach Anlegezeitpunkt) als Vorbelegung, ohne eigene Merk-Tabelle | Funktioniert geräteübergreifend ohne zusätzliche Daten; der Wert wird beim Öffnen des Formulars ermittelt | 2026-11-13 |
+| Kein Löschen in PROJ-4; die Datenbank erlaubt aber schon das Ändern eigener Zeilen für PROJ-5 | PROJ-5 braucht Bearbeiten und Löschen; die Regeln (Besitzer, Grenzen) stehen dann schon, das Löschrecht wird erst dort mit eigener Freigabe vergeben | 2026-11-13 |
+| Daten werden im Browser geladen (Datenschicht mit Schnittstelle, Platzhalter zuerst), wie bei PROJ-3 | Bewährtes Muster dieses Projekts; die Oberfläche lässt sich vor dem Backend vollständig prüfen | 2026-11-13 |
+| Datum und Uhrzeiten über die eingebauten Felder des Browsers, kein neues Kalender-Paket | Am Handy der bekannte Wähler des Geräts, am Laptop Tastatureingabe; keine neue Abhängigkeit | 2026-11-13 |
+| Dauer-Eingabe über eine gemeinsame Prüf- und Format-Funktion (Std:Min, Dezimal, Ablehnung von «90») an einer Stelle | Formular, Anzeige und spätere Features (Timer, Auswertung) nutzen dieselbe Regel | 2026-11-13 |
+| Index auf Besitzer und Datum sowie auf das Projekt | «Heute» jetzt, Wochen- und Monatsauswertung (PROJ-7, PROJ-8) und Export später ohne Umbau schnell | 2026-11-13 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Backend nötig?
+Ja. Zeiteinträge sind die **wichtigsten Daten der App** und müssen geräteübergreifend in Supabase liegen. Es kommt eine neue Tabelle «Zeiteinträge» dazu, abgesichert wie die Kunden und Projekte aus PROJ-3 (nur eigene Daten, Regeln in der Datenbank). Eigene Schnittstellen (API-Routen) sind nicht nötig: Die Seite liest und schreibt direkt über Supabase. Die Oberfläche baut `/frontend`, Tabelle und Regeln baut `/backend`.
+
+### A) Seitenstruktur
+```
+App-Bereich (geschützt, mit Navigation)
++-- Startseite «/» (ersetzt den Willkommens-Platzhalter, Adresse bleibt)
+|   +-- Kopf: Titel «Heute» mit dem Datum und Knopf «Zeit erfassen»
+|   +-- Tagessumme: gearbeitet und verrechenbar
+|   +-- Liste «Heute» (nur lesen)
+|   |   +-- Eintrag: Kürzel · Projekt, Beschreibung, Dauer, verrechenbar, Uhrzeiten (falls vorhanden)
+|   +-- Leerzustand: Erklärung und Knopf «Zeit erfassen»
+|   +-- Ladezustand und Fehlerzustand mit «Erneut versuchen»
++-- Formular «Zeit erfassen» (Dialog am Laptop, Blatt von unten am Handy)
+    +-- Datum (heute vorbelegt)
+    +-- Kunde, Projekt (zuletzt benutztes vorbelegt, nur aktive)
+    +-- Umschalter: «Dauer» oder «Von–bis»
+    |   +-- Dauer: ein Feld, z. B. 1:30
+    |   +-- Von–bis: Start, Ende, daraus berechnete Dauer
+    +-- Verrechenbar (vorbelegt mit der gearbeiteten Dauer)
+    +-- Beschreibung (optional, mehrzeilig)
+    +-- Hinweise: Überschneidung, kein aktiver Kunde, Fehler beim Speichern
+    +-- Knöpfe «Abbrechen» und «Speichern»
+```
+Bei **keinem aktiven Kunden** zeigt das Formular statt der Felder den Hinweis «Lege zuerst einen Kunden an» mit Link zu «/kunden».
+
+### B) Bausteine
+- **Vorhandene shadcn-Bausteine:** Card, Dialog und Sheet (über den vorhandenen Rahmen aus PROJ-3), Form, Input (auch für Datum und Uhrzeit), Select (Kunde, Projekt), Tabs (Umschalter Dauer/Von–bis), Textarea, Button, Alert, Badge, Skeleton, Sonner. Nichts Neues zu installieren.
+- **Neue eigene Zusammensetzungen:** Startseite mit Kopf und Tagessumme, Liste «Heute» mit Eintragszeile, Zeiterfassungs-Formular, Hinweis auf Überschneidung, Leer- und Fehlerzustand.
+- **Wiederverwendet aus PROJ-3:** `ResponsiveDialog` (Dialog/Blatt, Fokus kehrt zurück), `AuthNotice` für Formularfehler, Lade- und Fehlerzustände, Hook für das Laden mit Neuladen.
+- **Gemeinsame Prüfregeln und Formate an einer Stelle:** Dauer lesen und anzeigen («1:30», «1,5», «1.5»; «90» abgelehnt), Uhrzeiten, Datum (nicht in der Zukunft, nach Zürcher Uhr), verrechenbar nicht grösser als gearbeitet, Beschreibung höchstens 1000 Zeichen. Formular und Datenbank kennen dieselben Grenzen.
+- **Startseite:** Der Willkommens-Platzhalter wird ersetzt. Das Logo bleibt in der Navigation; der Systemstatus ist ohnehin dort erreichbar.
+
+### C) Datenmodell (in Alltagssprache)
+```
+Jeder Zeiteintrag hat:
+- Eindeutige ID
+- Besitzer (der angemeldete Nutzer, wird automatisch gesetzt, unveränderlich)
+- Projekt (gehört genau einem Projekt des Besitzers; der Kunde ergibt sich daraus)
+- Datum (nicht in der Zukunft, nach der Uhr in Zürich)
+- Dauer in Minuten (1 bis 1440)
+- Verrechenbare Dauer in Minuten (0 bis zur Dauer)
+- Startzeit und Endzeit (beide oder keine; Uhrzeiten ohne Zeitzone; Ende nach Start; Dauer = Ende minus Start)
+- Beschreibung (optional, 1 bis 1000 Zeichen, ohne Leerzeichen am Rand; leer wird «keine»)
+- Angelegt am, zuletzt geändert am
+
+Gespeichert in: Supabase (PostgreSQL), geräteübergreifend.
+```
+Was **nicht** gespeichert wird: ein Namens-Schnappschuss von Kunde und Projekt (Umbenennen wirkt rückwirkend, Spec PROJ-3) und die Eingabeart (Dauer oder Von–bis). Ob Uhrzeiten vorhanden sind, ergibt sich daraus, ob Start und Ende gesetzt sind.
+
+### D) Regeln in der Datenbank (das Sicherheitsnetz)
+- **Nur eigene Daten:** Lesen, Anlegen und Ändern nur auf eigenen Zeilen (Row Level Security). Der Besitzer wird von der Datenbank gesetzt und lässt sich nicht ändern. Ohne Anmeldung ist nichts lesbar oder schreibbar.
+- **Projekt gehört dem Besitzer:** Ein Eintrag kann nur auf ein Projekt des eigenen Kontos zeigen (wie bei Projekt und Kunde in PROJ-3).
+- **Kein Löschen in PROJ-4:** Es gibt weder Knopf noch Datenbankrecht zum Löschen. PROJ-5 vergibt es später mit eigener Freigabe. Ein Projekt mit Zeiteinträgen lässt sich ohnehin nie löschen.
+- **Grenzen und Konsistenz:** Dauer 1 bis 1440 Minuten, verrechenbar 0 bis zur Dauer, Start und Ende nur zusammen, Ende nach Start, Dauer passt zu den Uhrzeiten, Beschreibung höchstens 1000 Zeichen. Wer die Oberfläche umgeht, scheitert trotzdem.
+- **Datum nicht in der Zukunft:** Die Datenbank vergleicht mit dem heutigen Datum in Zürich.
+- **Nur aktive Ziele beim Anlegen:** Neue Einträge auf ein archiviertes Projekt oder einen archivierten Kunden lehnt die Datenbank ab. Bereits erfasste Einträge bleiben unverändert erhalten und zählen in Auswertung und Export weiter.
+- **Nicht in der Datenbank:** Überschneidungen (nur Hinweis in der Oberfläche) und die Endzeit «nicht in der Zukunft» (nur Oberfläche, damit eine Minute Uhrenabweichung nicht stört).
+
+### E) Ablauf in Worten
+1. **Startseite laden:** Die Seite lädt die Einträge von heute (Datum nach Zürcher Uhr) mit Kürzel, Kundenname und Projektname und bildet die Tagessummen. Sie ist wie alle anderen Seiten geschützt (PROJ-2).
+2. **Formular öffnen:** Es lädt die aktiven Kunden mit ihren aktiven Projekten und ermittelt den zuletzt erfassten Eintrag. Sind dessen Kunde und Projekt noch aktiv, werden sie vorbelegt. Datum ist heute, der Modus «Dauer».
+3. **Eingeben:** Die Dauer wird beim Tippen geprüft und angezeigt. Im Modus «Von–bis» berechnet die Oberfläche die Dauer. Die verrechenbare Dauer folgt der gearbeiteten, bis der Nutzer sie von Hand ändert. Bei Uhrzeiten werden die Einträge desselben Tages geladen, und eine Überschneidung erscheint als Hinweis.
+4. **Speichern:** Das Formular prüft alles erneut, sendet den Eintrag, und die Datenbank prüft die Regeln ein zweites Mal. Danach schliesst es sich, die Liste «Heute» lädt neu, und eine kurze Bestätigung erscheint (bei früherem Datum mit dem Datum).
+5. **Fehler:** Archiviertes Ziel, Netzwerk, abgelaufene Sitzung und Dienstfehler werden in verständliche Meldungen übersetzt, die Eingaben bleiben erhalten (Muster aus PROJ-2 und PROJ-3).
+
+### F) Tech-Entscheidungen (für Nicht-Techniker begründet)
+- **Eine Tabelle, direkt über Supabase:** Wie bei den Kunden schützt die Datenbank selbst die Daten. Ein Server-Zwischenschritt würde nichts schützen und mehr Code bedeuten.
+- **Minuten als einzige Rechengrösse:** Summen für Tag, Woche und Monat sind einfache Additionen ohne Rundungsfehler. Das Anzeigeformat «1:30» entsteht erst bei der Darstellung. Der Timer (PROJ-6) und die Auswertungen (PROJ-7 bis PROJ-9) bauen darauf auf.
+- **Uhrzeiten optional neben der Dauer:** Ein Eintrag «1:30 für Kunde X» braucht keine Uhrzeit, ein Eintrag «08:30 bis 10:00» behält sie. So kann PROJ-5 sie später anzeigen und bearbeiten, und der Timer füllt dieselben Felder.
+- **Feste Zeitzone Zürich für «heute»:** Das Gerät kann eine andere Zeitzone oder eine falsche Uhr haben. Mit einer festen Zeitzone sehen Oberfläche und Datenbank denselben «heute»-Tag. Wer später in einer anderen Zeitzone arbeiten will, braucht eine Einstellung (nicht im MVP).
+- **Datenbank prüft Datum und Archivierung, Oberfläche prüft Endzeit und Überschneidung:** Alles, was die Datenintegrität betrifft, steht in der Datenbank. Was unscharf sein darf (eine Minute Uhrenabweichung, bewusst erlaubte Überschneidung), prüft nur die Oberfläche.
+- **Vorbelegung aus dem letzten Eintrag:** Keine zusätzliche Tabelle oder Einstellung. Der letzte Eintrag ist die Quelle, auf jedem Gerät gleich.
+- **Browser lädt, Browser schreibt:** Wie bei PROJ-3 (Datenschicht mit Schnittstelle, zuerst Platzhalter, dann Supabase). Der Schutz liegt in der Datenbank; ein Laden im Server wäre nur ein schnellerer erster Anblick.
+- **Eingebaute Datums- und Zeitfelder des Browsers:** Am Handy der gewohnte Wähler, am Laptop Tastatur. Kein neues Kalender-Paket.
+
+### G) Abhängigkeiten (Pakete)
+Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolvers` (Formular und Prüfregeln), `@supabase/ssr`, `@supabase/supabase-js` (Zugriff), `sonner` (Meldungen), `lucide-react` (Symbole).
+
+### H) Risiken und Hinweise für Bau und QA
+- **Dauer-Eingabe ist der heikelste Teil:** «1:30», «1,5», «1.5», «0,25» und «90» müssen eindeutig behandelt werden. Viele Fälle gehören in Komponententests (reine Funktionen), nicht nur in E2E.
+- **Zeitzone:** Sommer-/Winterzeit und die Mitternachtsgrenze testen («heute» kurz nach 00:00 und kurz vor 24:00 in Zürich). Die Uhr des Browsers lässt sich in Playwright steuern.
+- **Zusammenspiel mit PROJ-3:** Beim Anlegen darf kein archivierter Kunde oder kein archiviertes Projekt gebucht werden, auch nicht durch Archivieren auf einem anderen Gerät, während das Formular offen ist (Datenbank lehnt ab, Oberfläche zeigt den Hinweis).
+- **Testdaten:** E2E-Tests legen Einträge auf eigene Testkunden mit Präfix «T-» an. Solange es kein Löschen gibt (kommt mit PROJ-5), bleiben Testeinträge im Konto bestehen und würden in späteren Auswertungen mitzählen. Mögliche Lösung: Testeinträge auf archivierte Testkunden beschränken oder später ein eigenes Testkonto.
+- **Mobile:** Formular im Blatt von unten, die Tastatur auf dem Handy darf das Speichern nicht verdecken; 44-px-Ziele; 320 px Breite prüfen.
+- **Performance:** Die Startseite lädt nur die Einträge von heute. Index auf Besitzer und Datum, damit auch spätere Wochen- und Monatsabfragen schnell bleiben.
+- **PROJ-5 kommt danach:** Die Tabelle erlaubt schon das Ändern eigener Zeilen, Löschen erst mit PROJ-5.
 
 ## QA Test Results
 _To be added by /qa_
