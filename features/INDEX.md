@@ -21,7 +21,7 @@
 | PROJ-3 | Kunden- und Projektverwaltung — anlegen, bearbeiten, archivieren (P0, Abhängigkeiten: PROJ-1, PROJ-2) | Deployed | [PROJ-3](PROJ-3-kunden-und-projektverwaltung.md) | 2026-11-08 |
 | PROJ-4 | Manuelle Zeiterfassung inkl. Nacherfassung — Datum, von–bis oder Dauer, Beschreibung, verrechenbare Stunden (P0, Abhängigkeiten: PROJ-3) | Deployed | [PROJ-4](PROJ-4-manuelle-zeiterfassung.md) | 2026-11-08 |
 | PROJ-5 | Zeiten prüfen und korrigieren — Liste, bearbeiten, löschen (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |
-| PROJ-6 | Timer — Start/Stopp pro Kunde/Projekt, immer nur ein Timer aktiv (P0, Abhängigkeiten: PROJ-3, PROJ-4) | Architected | [PROJ-6](PROJ-6-timer.md) | 2026-11-08 |
+| PROJ-6 | Timer — Start/Stopp pro Kunde/Projekt, immer nur ein Timer aktiv (P0, Abhängigkeiten: PROJ-3, PROJ-4) | In Progress | [PROJ-6](PROJ-6-timer.md) | 2026-11-08 |
 | PROJ-7 | Wochenübersicht — Stunden pro Tag, Kunde und Projekt, mit Beschreibung (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |
 | PROJ-8 | Monatsauswertung — Summe pro Kunde, gearbeitet und verrechenbar, mit Beschreibungstexten (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |
 | PROJ-9 | CSV-Export aller Zeiten, jederzeit (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |

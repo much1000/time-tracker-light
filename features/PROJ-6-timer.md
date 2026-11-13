@@ -1,6 +1,6 @@
 # PROJ-6: Timer
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -252,6 +252,20 @@ Keine neuen. Vorhanden und genutzt: `@supabase/ssr`, `@supabase/supabase-js` (Zu
 - **Rechte der Funktionen:** Die drei Funktionen laufen mit erweiterten Rechten (sie legen Einträge an und löschen die Timer-Zeile). Sie müssen innen den Besitzer prüfen und dürfen für `anon` nicht aufrufbar sein. Das gehört in die Datenbanktests (fremder Nutzer, ohne Anmeldung).
 - **Mobile:** Die Leiste über der Tab-Leiste darf Inhalte und Bestätigungsmeldungen nicht verdecken (Sonner-Position), 44-px-Ziele, 320 px prüfen.
 - **Änderung an PROJ-4:** Die Anpassung der Datenbank-Regeln (Endzeit 24:00, Ausnahme im Stopp) ändert Regeln eines bereits veröffentlichten Features. `/backend` muss die PROJ-4-Tests und die Zugriffsregeln erneut prüfen; Änderungen an Zugriffsregeln brauchen die Freigabe des Nutzers.
+
+## Implementation Notes (Backend)
+**Stand 2026-11-14: Migration geschrieben, aber noch NICHT auf Supabase angewendet.** Das Anwenden wurde von der Berechtigungsprüfung von Claude Code abgelehnt (`Migration was declined`), obwohl der Nutzer es freigegeben hatte. Es wurde nicht umgangen. Die Datenbankregeln sind deshalb noch ungeprüft.
+
+### Fertig
+- **Migration** `supabase/migrations/20261114000000_running_timers.sql` (liegt im Projekt, nicht angewendet): Tabelle `running_timers` (ein Timer pro Nutzer, Row Level Security, der Browser darf nur lesen und die Beschreibung ändern), Funktionen `get_timer`, `start_timer`, `stop_timer`, `discard_timer` (nur angemeldete Nutzer, `anon` gesperrt), interne Hilfsfunktionen `timer_json` und `finish_timer_internal` (Abschneiden auf Minuten, Aufteilung nach Tagen der Zürcher Uhr, Endzeit 24:00, verrechenbar = Dauer), und eine Anpassung des Triggers `time_entries_before_insert` (PROJ-4): Ausnahme für archivierte Ziele nur, wenn die Stopp-Funktion die Sitzungsvariable `app.timer_stop` setzt.
+- **Datenschicht** `src/lib/timer/` (`types.ts`, `errors.ts`, `repository.ts`, `supabase-repository.ts`, `index.ts`): `SupabaseTimerRepository` mit `getTimer`, `startTimer`, `stopTimer`, `discardTimer`, `saveDescription`; Datenbankfehler werden zu `TimerError` (Ziel archiviert, Ziel nicht gefunden, kein Timer, Beschreibung zu lang, Sitzung abgelaufen, nicht erreichbar).
+- **Tests:** 11 Vitest-Tests der Datenschicht (Übersetzung, Wechsel, Stopp mit und ohne Text, zu kurz, Verwerfen, Beschreibung speichern, Fehlerarten). `tsc` sauber, Lint ohne Fehler.
+
+### Offen (nach dem Anwenden der Migration)
+- Datenbankregeln per SQL prüfen (zurückgerollte Transaktionen): Aufteilung über Mitternacht und mehrere Tage, Abschneiden, zu kurz, Wechsel, Fremdzugriff, `anon`, archivierte Projekte, Ausnahme nur im Stopp, Endzeit 24:00, direkte Zugriffe (Anlegen, Löschen, Ändern von Projekt und Startzeit).
+- E2E gegen die echte Datenbank (REST mit eigener Sitzung): Start, Lesen, Beschreibung ändern, Wechsel, Verwerfen, verbotene direkte Zugriffe.
+- PROJ-4-Regressionstests erneut laufen lassen (Trigger geändert).
+- Spec und `features/INDEX.md` nach der Prüfung abschliessen.
 
 ## QA Test Results
 _To be added by /qa_
