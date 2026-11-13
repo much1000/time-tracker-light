@@ -27,7 +27,7 @@ test('AC: Abmelden in der Seitenleiste führt auf die Anmeldeseite, danach ist a
   // Die Zurück-Taste zeigt keinen geschützten Inhalt mehr.
   await page.goBack()
   await expect(page.getByRole('heading', { level: 1, name: 'Anmelden' })).toBeVisible()
-  await expect(page.locator('body')).not.toContainText('Willkommen bei Time Tracker Light')
+  await expect(page.locator('body')).not.toContainText('Zeit erfassen')
 
   // Geschützte Adressen führen wieder auf die Anmeldung.
   await page.goto('/status')

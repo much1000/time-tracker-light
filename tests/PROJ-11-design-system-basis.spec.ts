@@ -198,14 +198,20 @@ test.describe('PROJ-11: Navigation und Layout', () => {
     await page.setViewportSize({ width: 375, height: 320 }) // Niedrig, damit die Seite scrollt
     await page.goto('/')
     const tabBar = page.getByRole('navigation', { name: 'Hauptnavigation' })
+    // Seit PROJ-4 lädt die Startseite Daten: erst scrollen, wenn der Inhalt vollständig da ist.
+    await expect(page.getByText('Heute noch nichts erfasst')).toBeVisible()
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     const bar = await tabBar.boundingBox()
     expect(Math.round(bar!.y + bar!.height)).toBe(320)
     expect(await tabBar.evaluate((el) => getComputedStyle(el).position)).toBe('fixed')
 
-    const cardBottom = await page.locator('#main-content').getByRole('link', { name: 'Systemstatus ansehen' }).evaluate((el) => el.getBoundingClientRect().bottom)
-    expect(cardBottom).toBeLessThanOrEqual(bar!.y)
+    // Seit PROJ-4: Das Ende des Seiteninhalts (letztes Element in «main») liegt über der Tab-Leiste.
+    await expect(page.locator('#main-content').getByRole('heading', { level: 1, name: 'Heute' })).toBeVisible()
+    const contentBottom = await page.locator('#main-content').evaluate((el) =>
+      Math.max(...[...el.querySelectorAll('*')].map((child) => child.getBoundingClientRect().bottom))
+    )
+    expect(contentBottom).toBeLessThanOrEqual(bar!.y + 1)
   })
 
   test('AC: Tastatur: «Zum Inhalt springen» ist erstes Tab-Ziel, Navigation hat sichtbaren Fokus', async ({ page }) => {
@@ -242,14 +248,14 @@ test('AC: Jede Seite hat genau einen Hauptbereich (<main>)', async ({ page }) =>
 // ---------- Startseite ----------
 
 test.describe('PROJ-11: Startseite', () => {
-  test('AC: «/» zeigt Logo, Willkommenstext und Link zum Status, keine Starter-Seite mehr', async ({ page }) => {
+  // Seit PROJ-4 ist die Startseite «Heute» (Zeit erfassen); der Systemstatus bleibt über die Navigation erreichbar.
+  test('AC: «/» zeigt die Startseite, der Status ist über die Navigation erreichbar, keine Starter-Seite mehr', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await page.goto('/')
 
     const main = page.locator('#main-content')
-    await expect(main.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
-    await expect(main.locator('img').first()).toBeVisible()
-    await main.getByRole('link', { name: 'Systemstatus ansehen' }).click()
+    await expect(main.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
+    await page.locator('div.bg-sidebar').getByRole('link', { name: 'Status' }).click()
     await expect(page).toHaveURL(/\/status$/)
 
     await page.goto('/')

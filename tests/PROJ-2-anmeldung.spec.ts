@@ -32,7 +32,7 @@ test.describe('PROJ-2: Seitenschutz (ohne Anmeldung)', () => {
 
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Anmelden' })).toBeVisible()
-    await expect(page.locator('body')).not.toContainText('Willkommen bei Time Tracker Light')
+    await expect(page.locator('body')).not.toContainText('Zeit erfassen')
     await expect(page.locator('nav')).toHaveCount(0)
     await expect(page.locator('header')).toHaveCount(0)
     await expect(page.locator('div.bg-sidebar')).toHaveCount(0)
@@ -124,7 +124,7 @@ test.describe('PROJ-2: Seitenschutz (ohne Anmeldung)', () => {
       const body = await response.text()
       expect(body, path).not.toContain('Datenbank erreichbar')
       expect(body, path).not.toContain('Systemstatus')
-      expect(body, path).not.toContain('Willkommen bei Time Tracker Light')
+      expect(body, path).not.toContain('Zeit erfassen')
     }
     // Bekannter Umgehungsversuch gegen Middleware (CVE-2025-29927): interner Header von aussen.
     for (const value of [
@@ -480,7 +480,7 @@ test.describe('PROJ-2: Mit Anmeldung', () => {
     for (const path of ['/login', '/passwort-vergessen']) {
       await page.goto(path)
       await expect(page, path).toHaveURL(/\/$/)
-      await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
     }
   })
 
@@ -517,7 +517,7 @@ test.describe('PROJ-2: Mit Anmeldung', () => {
     const second = await context.newPage()
     await second.goto('/')
     await expect(second).toHaveURL(/\/$/)
-    await expect(second.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+    await expect(second.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
 
     const cookies = await context.cookies()
     expect(cookies.some((cookie) => cookie.name.startsWith('sb-'))).toBe(true)
@@ -574,9 +574,9 @@ test.describe('PROJ-2: Anmelden mit dem Testkonto', () => {
     await uiLogin(page)
 
     await expect(page).toHaveURL(/\/$/)
-    await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
   })
 
   test('AC: Nach der Umleitung führt die Anmeldung zurück auf die ursprünglich gewünschte Seite', async ({ page }) => {
@@ -597,7 +597,7 @@ test.describe('PROJ-2: Anmelden mit dem Testkonto', () => {
 
       await expect(page, next).toHaveURL(/\/$/)
       expect(new URL(page.url()).hostname, next).toBe('localhost')
-      await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ }), next).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: /Heute/ }), next).toBeVisible()
       await context.close()
     }
   })
@@ -617,7 +617,7 @@ test.describe('PROJ-2: Anmelden mit dem Testkonto', () => {
     await page.goBack()
 
     await expect(page).toHaveURL(/\/$/)
-    await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
   })
 
   test('AC: Zwei Geräte sind unabhängig angemeldet', async ({ browser }) => {
@@ -634,7 +634,7 @@ test.describe('PROJ-2: Anmelden mit dem Testkonto', () => {
     for (const context of contexts) {
       const page = context.pages()[0]
       await page.reload()
-      await expect(page.getByRole('heading', { level: 1, name: /Willkommen/ })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: /Heute/ })).toBeVisible()
     }
     await Promise.all(contexts.map((context) => context.close()))
   })

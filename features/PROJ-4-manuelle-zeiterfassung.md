@@ -1,6 +1,6 @@
 # PROJ-4: Manuelle Zeiterfassung inkl. Nacherfassung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -123,7 +123,7 @@
 - **Design:** `docs/design-system.md`, WCAG AA, shadcn/ui vor eigenen Komponenten.
 
 ## Open Questions
-- [ ] **Mehrere Einträge nacheinander (Nacherfassung eines ganzen Tages):** Genügt das erneute Öffnen mit vorbelegtem Kunden und Projekt, oder braucht es einen Knopf «Speichern und weiteren Eintrag»? Entscheidung beim Bau der Oberfläche.
+- [x] **Mehrere Einträge nacheinander (Nacherfassung eines ganzen Tages):** Entschieden beim Bau der Oberfläche: kein eigener Knopf, das erneute Öffnen genügt. Ursprüngliche Frage: Genügt das erneute Öffnen mit vorbelegtem Kunden und Projekt, oder braucht es einen Knopf «Speichern und weiteren Eintrag»? Entscheidung beim Bau der Oberfläche.
 - [ ] **Untere Grenze beim Datum:** Heute keine (Nacherfassung beliebig weit zurück). Falls Tippfehler im Jahr auffallen sollen, könnte ein Hinweis bei Daten älter als ein Jahr ergänzt werden.
 - [x] **Zeitzone:** Entschieden in `/architecture`: «heute» und «nicht in der Zukunft» gelten nach der Zürcher Uhr, Uhrzeiten werden als Wanduhrzeit ohne Zeitzone gespeichert (vom Nutzer bestätigt: Einzelnutzer in der Schweiz).
 
@@ -252,6 +252,35 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - **Mobile:** Formular im Blatt von unten, die Tastatur auf dem Handy darf das Speichern nicht verdecken; 44-px-Ziele; 320 px Breite prüfen.
 - **Performance:** Die Startseite lädt nur die Einträge von heute. Index auf Besitzer und Datum, damit auch spätere Wochen- und Monatsabfragen schnell bleiben.
 - **PROJ-5 kommt danach:** Die Tabelle erlaubt schon das Ändern eigener Zeilen, Löschen erst mit PROJ-5.
+
+## Implementation Notes (Frontend)
+**Stand:** 2026-11-13. Die Oberfläche steht vollständig. Die **Zeiteinträge** liegen aber noch als **Platzhalter im Browser** (kein Supabase). **Kunden und Projekte sind echt** (PROJ-3, Supabase). `/backend` baut Tabelle, Regeln und die echte Datenschicht.
+
+### Was gebaut wurde
+- **Startseite** `src/app/(app)/page.tsx` zeigt jetzt «Heute» (`today-view.tsx`): Titel mit Datum nach Zürcher Uhr, Knopf «Zeit erfassen», Tagessumme (gearbeitet, verrechenbar), Liste der heutigen Einträge (nur lesen), Leer-, Lade- und Fehlerzustand. Der Willkommens-Platzhalter ist weg.
+- **Formular** `time-entry-form-dialog.tsx` (Dialog am Laptop, Blatt am Handy, über den `ResponsiveDialog` aus PROJ-3): Datum, Kunde, Projekt, Umschalter «Nur Dauer» / «Von–bis», Verrechenbar (folgt der gearbeiteten Dauer, bis man sie ändert), Beschreibung. Hinweis bei Überschneidungen (Speichern bleibt möglich), Hinweis «Lege zuerst einen Kunden an», Speicherfehler mit erhaltenen Eingaben, archiviertes Ziel als Hinweis am Projekt.
+- `entry-row.tsx` (Eintragszeile, lange Beschreibung wird gekürzt und lässt sich aufklappen), `preview-notice.tsx` (Platzhalter-Hinweis mit «Zurücksetzen»).
+- **Prüfregeln und Formate an einer Stelle** in `src/lib/time-entries/`: `duration.ts` (Dauer lesen und anzeigen, Uhrzeiten), `zurich.ts` («heute» und «jetzt» nach Zürcher Uhr, Datumsformate), `validation.ts` (Formularprüfung, Überschneidungen, Summen), `errors.ts`, `types.ts`.
+- **Datenschicht:** Schnittstelle `TimeEntriesRepository` (`repository.ts`) und der **Platzhalter** `mock-repository.ts` (Browser-Speicher `tt-preview-time-entries`, Kunden und Projekte über die echte Datenschicht aus PROJ-3). `index.ts` ist die einzige Stelle, die die Datenhaltung wählt.
+- Keine neuen Pakete. Zusätzlich ein Fix im gemeinsamen Dialog-Rahmen: Er scrollt jetzt bei niedrigen Bildschirmen (`max-h-[90dvh]`, auch für PROJ-3).
+
+### Abweichungen und Entscheidungen
+- **Dauer «2» (ganze Zahl bis 24) gilt als 2 Stunden**, grössere ganze Zahlen wie «90» werden mit Hinweis auf Std:Min abgelehnt. Die Spec nannte nur «90»; «0» muss bei «Verrechenbar» erlaubt sein, und «2» für zwei Stunden ist die natürliche Eingabe.
+- **Fokus beim Öffnen:** Ist ein Ziel vorbelegt, liegt der Fokus im Feld «Dauer» (schnellster Weg: Knopf, Dauer, Speichern). Ohne Vorbelegung liegt er in der Kundenauswahl. Die Spec sagte «im ersten Feld»; das Datum ist vorbelegt und muss selten angefasst werden.
+- **Umschalter heisst «Nur Dauer» statt «Dauer»**, weil das Feld darunter «Dauer» heisst und Screenreader sonst zwei Elemente mit demselben Namen finden.
+- **Daten werden im Browser geladen**, wie bei PROJ-3 (Tech Design: Datenschicht mit Schnittstelle).
+- **Vorbelegung** kommt aus dem zuletzt angelegten Eintrag. In der Vorschau gilt das nur für Einträge in diesem Browser; mit `/backend` gilt es auf jedem Gerät.
+- **«Speichern und weiteren Eintrag»** wurde nicht gebaut: Das erneute Öffnen ist vorbelegt (offene Frage der Spec, Entscheidung: reicht fürs MVP).
+- **Anpassungen an bestehenden Tests:** Die Startseite hat keinen Willkommenstext mehr. Die Tests in `PROJ-2-*` und `PROJ-11-*`, die «Willkommen» als Merkmal der Startseite nutzten, prüfen jetzt die Überschrift «Heute» (bzw. den Knopf «Zeit erfassen» in den Negativ-Prüfungen). Der Test der Tab-Leiste wartet, bis die Startseite geladen ist, und misst das Ende des Inhalts.
+- Beim Bauen entdeckt und behoben: Radix-Auswahl meldete beim Wechsel kurz einen leeren Wert und leerte das Projekt (wird ignoriert); `aria-controls` des Umschalters zeigte ins Leere (jetzt mit `TabsContent`); die Platzhalter-Datenschicht fragte bei jedem Speichern alle Kunden einzeln ab (aktive zuerst, bricht früh ab).
+
+### Tests
+- **Vitest:** 220 von 220 grün (neu: 52 Tests zu Dauer, Uhrzeiten, Zürcher Uhr inkl. Sommer- und Mitternachtsgrenze, Formularprüfung, Überschneidungen, Platzhalter-Datenschicht in `time-entries.test.ts`; 11 Oberflächentests in `time-entries-ui.test.tsx`).
+- `tsc` sauber, Lint ohne Fehler.
+- **E2E (Chrome, Produktionsbuild, echte Kunden):** `tests/PROJ-4-zeiterfassung.spec.ts` mit 19 Tests (Erfassen, Vorbelegung, Prüfregeln, Nacherfassung, Überschneidung, Eingaben als Text, Tastatur und Fokus, Layout bei 320/375/768/1440 px mit 44-px-Zielen, lange Beschreibung, axe in Hell und Dunkel, archivierter Kunde fehlt in der Auswahl). Alle 143 E2E-Tests (inkl. Regression PROJ-1, 2, 3, 11) grün.
+- Sichtprüfung (Chrome, 375 und 1280 px): Leerzustand, Formular, Liste.
+- **Nicht geprüft:** Firefox und Safari, echtes Handy mit Bildschirmtastatur, Screenreader von Hand. Das gehört in `/qa`.
+- Die E2E-Tests legen Testkunden `T-…` an und archivieren sie. Die Zeiteinträge der Tests liegen nur im Browser-Speicher und belasten die Datenbank nicht.
 
 ## QA Test Results
 _To be added by /qa_

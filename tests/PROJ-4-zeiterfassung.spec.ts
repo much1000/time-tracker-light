@@ -1,0 +1,317 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { expect, test, type Page } from '@playwright/test'
+import { hasTestUser, NO_LOGIN, SKIP_REASON } from './helpers/env'
+
+// PROJ-4 (Frontend): Zeiterfassung auf der Startseite. Die Zeiteinträge liegen in der Vorschau nur im
+// Browser (localStorage), Kunden und Projekte sind echt. Der Test legt einen Kunden «T-…» an und
+// archiviert ihn am Ende (es gibt kein Löschen).
+
+const AXE = readFileSync(resolve(process.cwd(), 'node_modules/axe-core/axe.min.js'), 'utf8')
+const run = Date.now().toString(36).slice(-5).toUpperCase()
+const CODE = `T-Z${run}`
+const NAME = `Zeit Kunde ${run}`
+
+async function axeViolations(page: Page) {
+  await page.evaluate(AXE)
+  return page.evaluate(async () => {
+    // @ts-expect-error axe wird per Skript eingebunden
+    const result = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa'] })
+    return result.violations.map((v: { id: string; nodes: { html: string }[] }) => ({
+      id: v.id,
+      nodes: v.nodes.slice(0, 3).map((n) => n.html.slice(0, 140)),
+    }))
+  })
+}
+
+async function noHorizontalScroll(page: Page) {
+  return page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
+}
+
+async function pickCustomer(page: Page) {
+  await page.getByLabel('Kunde').click()
+  await page.getByRole('option', { name: new RegExp(CODE) }).click()
+  await expect(page.getByLabel('Projekt')).toContainText('Allgemein')
+}
+
+// Jeder Test startet mit leerem Browser-Speicher: Ohne früheren Eintrag sind Kunde und Projekt leer.
+async function openForm(page: Page, options: { pick?: boolean } = { pick: true }) {
+  await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByLabel('Datum')).toBeVisible()
+  if (options.pick !== false && (await page.getByLabel('Kunde').textContent())?.includes('Kunde wählen')) {
+    await pickCustomer(page)
+  }
+}
+
+// Legt einen Vorschau-Eintrag für heute im Browser-Speicher an, bevor die Seite lädt.
+async function seedEntry(page: Page) {
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Zurich' }).format(new Date())
+  await page.addInitScript(
+    ([key, date, code, name]) => {
+      if (localStorage.getItem(key)) return
+      localStorage.setItem(
+        key,
+        JSON.stringify([
+          {
+            id: 'seed-1',
+            projectId: 'seed-project',
+            customerId: 'seed-customer',
+            customerCode: code,
+            customerName: name,
+            projectName: 'Allgemein',
+            date,
+            durationMinutes: 90,
+            billableMinutes: 90,
+            startTime: null,
+            endTime: null,
+            description: 'Konzept überarbeitet',
+            createdAt: new Date().toISOString(),
+          },
+        ])
+      )
+    },
+    ['tt-preview-time-entries', today, CODE, NAME]
+  )
+}
+
+test.describe('ohne Anmeldung', () => {
+  test.use({ storageState: NO_LOGIN })
+
+  test('AC: Startseite führt ohne Anmeldung auf die Anmeldung und zeigt keine Daten', async ({ page }) => {
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.locator('body')).not.toContainText('Zeit erfassen')
+  })
+})
+
+test.describe('mit Anmeldung', () => {
+  test.skip(!hasTestUser, SKIP_REASON)
+  test.describe.configure({ mode: 'serial' })
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('Vorbereitung: Testkunde anlegen', async ({ page }) => {
+    await page.goto('/kunden')
+    await page.getByRole('button', { name: 'Neuer Kunde' }).click()
+    await page.getByLabel('Kürzel').fill(CODE)
+    await page.getByLabel('Name').fill(NAME)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByRole('link', { name: new RegExp(NAME) })).toBeVisible()
+  })
+
+  test('AC: Startseite zeigt «Heute», Knopf «Zeit erfassen» und Leerzustand', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1, name: 'Heute' })).toBeVisible()
+    await expect(page.getByText('Heute noch nichts erfasst')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Zeit erfassen' }).first()).toBeVisible()
+  })
+
+  test('AC: Eintrag erfassen (Dauer), Verrechenbar folgt, Eintrag und Tagessumme erscheinen, Vorbelegung beim nächsten Mal', async ({ page }) => {
+    await page.goto('/')
+    await openForm(page, { pick: false })
+    const today = await page.getByLabel('Datum').inputValue()
+    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+
+    await pickCustomer(page)
+    await page.getByLabel('Dauer', { exact: true }).fill('1,5')
+    await expect(page.getByLabel('Verrechenbar')).toHaveValue('1:30')
+    await page.getByLabel('Beschreibung (optional)').fill('Konzept überarbeitet')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: 'Konzept überarbeitet' })).toContainText('1:30')
+    await expect(page.getByText('Gearbeitet')).toBeVisible()
+    // Heute gespeichert: nach dem Neuladen noch da (Vorschau-Speicher im Browser)
+    await page.reload()
+    await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
+
+    // Nächstes Mal: Kunde und Projekt vorbelegt, Fokus in der Dauer
+    await openForm(page, { pick: false })
+    await expect(page.getByLabel('Kunde')).toContainText(CODE)
+    await expect(page.getByLabel('Projekt')).toContainText('Allgemein')
+    await expect(page.getByLabel('Dauer', { exact: true })).toBeFocused()
+    await page.keyboard.press('Escape')
+  })
+
+  test('AC: Prüfregeln am Feld: leere und mehrdeutige Dauer, verrechenbar zu gross, Zukunft', async ({ page }) => {
+    await page.goto('/')
+    await openForm(page)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Bitte gib eine Dauer ein.')).toBeVisible()
+    await expect(page.getByLabel('Dauer', { exact: true })).toHaveAttribute('aria-invalid', 'true')
+
+    await page.getByLabel('Dauer', { exact: true }).fill('90')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(/Bitte als Std:Min eingeben/).first()).toBeVisible()
+
+    await page.getByLabel('Dauer', { exact: true }).fill('1:00')
+    await page.getByLabel('Verrechenbar').fill('2:00')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(/nicht grösser sein als die gearbeitete Dauer/)).toBeVisible()
+    await page.getByLabel('Verrechenbar').fill('0')
+
+    await page.getByLabel('Datum').fill('2999-01-01')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Das Datum darf nicht in der Zukunft liegen.')).toBeVisible()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+  })
+
+  test('AC: Nacherfassung mit früherem Datum erscheint nicht unter «Heute»; von–bis mit Überschneidungshinweis', async ({ page }) => {
+    await page.goto('/')
+    await openForm(page)
+    await page.getByLabel('Datum').fill('2026-01-05')
+    await page.getByRole('tab', { name: 'Von–bis' }).click()
+    await page.getByLabel('Von', { exact: true }).fill('08:00')
+    await page.getByLabel('Bis', { exact: true }).fill('09:00')
+    await expect(page.getByText('Dauer: 1:00')).toBeVisible()
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByText('08:00–09:00')).toHaveCount(0)
+
+    // Gleicher Tag, überschneidender Zeitraum: Hinweis, Speichern bleibt möglich
+    await openForm(page)
+    await page.getByLabel('Datum').fill('2026-01-05')
+    await page.getByRole('tab', { name: 'Von–bis' }).click()
+    await page.getByLabel('Von', { exact: true }).fill('08:30')
+    await page.getByLabel('Bis', { exact: true }).fill('09:30')
+    await expect(page.getByText(/Überschneidung mit/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Speichern' })).toBeEnabled()
+    await page.keyboard.press('Escape')
+  })
+
+  test('AC: Ende vor Start und Endzeit in der Zukunft werden abgelehnt', async ({ page }) => {
+    await page.goto('/')
+    await openForm(page)
+    await page.getByRole('tab', { name: 'Von–bis' }).click()
+    await page.getByLabel('Von', { exact: true }).fill('10:00')
+    await page.getByLabel('Bis', { exact: true }).fill('09:00')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(/Das Ende muss nach dem Start liegen/)).toBeVisible()
+    await page.keyboard.press('Escape')
+  })
+
+  test('Sicherheit: HTML und Skripte in der Beschreibung werden als Text angezeigt', async ({ page }) => {
+    const dialogs: string[] = []
+    page.on('dialog', (d) => {
+      dialogs.push(d.message())
+      void d.dismiss()
+    })
+    const evil = `<img src=x onerror=alert(1)> '; drop table time_entries;-- 😀`
+    await page.goto('/')
+    await openForm(page)
+    await page.getByLabel('Dauer', { exact: true }).fill('0:10')
+    await page.getByLabel('Beschreibung (optional)').fill(evil)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText(evil, { exact: false })).toBeVisible()
+    expect(await page.locator('img[src="x"]').count()).toBe(0)
+    expect(dialogs).toEqual([])
+  })
+
+  test('AC: Tastatur: Escape schliesst, der Fokus kehrt zum Knopf zurück', async ({ page }) => {
+    await page.goto('/')
+    const open = page.getByRole('button', { name: 'Zeit erfassen' }).first()
+    await open.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(open).toBeFocused()
+  })
+
+  for (const width of [320, 375, 768, 1440]) {
+    test(`AC: Layout bei ${width} px: kein horizontales Scrollen, Bedienelemente mindestens 44 px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await seedEntry(page)
+      await page.goto('/')
+      await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
+      expect(await noHorizontalScroll(page)).toBe(true)
+      const small = async () =>
+        page.evaluate(() => {
+          const out: string[] = []
+          document.querySelectorAll('[role="dialog"] button, [role="dialog"] input, [role="dialog"] textarea, main button, main a[href]').forEach((el) => {
+            const r = (el as HTMLElement).getBoundingClientRect()
+            if (r.width === 0 || r.height === 0) return
+            if (r.height < 43.5) out.push(`${el.tagName} «${(el.textContent ?? '').trim().slice(0, 25)}» ${Math.round(r.height)}px`)
+          })
+          return out
+        })
+      expect(await small(), 'Startseite').toEqual([])
+      await openForm(page)
+      expect(await noHorizontalScroll(page)).toBe(true)
+      await page.getByRole('tab', { name: 'Von–bis' }).click()
+      expect(await noHorizontalScroll(page)).toBe(true)
+      const inDialog = (await small()).filter((entry) => !entry.startsWith('BUTTON «Close'))
+      expect(inDialog, 'Formular').toEqual([])
+      await page.keyboard.press('Escape')
+    })
+  }
+
+  test('AC: sehr lange Beschreibung und Namen bei 320 px laufen nicht über, «Mehr anzeigen» klappt auf', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 })
+    const longWord = 'x'.repeat(120)
+    await page.goto('/')
+    await openForm(page)
+    await page.getByLabel('Dauer', { exact: true }).fill('0:20')
+    await page.getByLabel('Beschreibung (optional)').fill(`Lang ${longWord} ${'text '.repeat(60)}`)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Mehr anzeigen' }).first()).toBeVisible()
+    expect(await noHorizontalScroll(page)).toBe(true)
+    // Die Bestätigung (Toast) verschwindet nach wenigen Sekunden (nicht, solange die Maus darauf steht).
+    await page.mouse.move(0, 0)
+    await expect(page.getByText('Eintrag gespeichert.')).toHaveCount(0, { timeout: 15000 })
+    await page.getByRole('button', { name: 'Mehr anzeigen' }).first().click()
+    await expect(page.getByRole('button', { name: 'Weniger anzeigen' })).toBeVisible()
+    expect(await noHorizontalScroll(page)).toBe(true)
+  })
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`AC: Barrierefreiheit (axe, WCAG AA) im ${scheme === 'dark' ? 'Dunkel' : 'Hell'}modus: Startseite und Formular`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('theme', value), scheme)
+      await page.emulateMedia({ colorScheme: scheme })
+      await seedEntry(page)
+      await page.goto('/')
+      await expect(page.getByText('Konzept überarbeitet')).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(scheme === 'dark')
+      expect(await axeViolations(page), 'Startseite').toEqual([])
+
+      await openForm(page)
+      await page.getByRole('button', { name: 'Speichern' }).click()
+      await expect(page.getByLabel('Dauer', { exact: true })).toHaveAttribute('aria-invalid', 'true')
+      expect(await axeViolations(page), 'Formular mit Fehler').toEqual([])
+      await page.getByRole('tab', { name: 'Von–bis' }).click()
+      expect(await axeViolations(page), 'Formular von–bis').toEqual([])
+      await page.keyboard.press('Escape')
+    })
+  }
+
+  test('AC: archivierter Kunde erscheint nicht mehr in der Auswahl', async ({ page }) => {
+    await page.goto('/kunden')
+    await page.getByRole('link', { name: new RegExp(NAME) }).click()
+    await page.getByRole('button', { name: 'Archivieren', exact: true }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Archivieren' }).click()
+    await expect(page.getByText('Dieser Kunde ist archiviert')).toBeVisible()
+
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('status')).toHaveCount(0) // Ladezustand vorbei
+    // Ohne weitere aktive Kunden zeigt das Formular den Hinweis, sonst fehlt der Kunde in der Auswahl.
+    if (await dialog.getByLabel('Kunde').count()) {
+      await dialog.getByLabel('Kunde').click()
+      await expect(page.getByRole('option', { name: new RegExp(CODE) })).toHaveCount(0)
+    } else {
+      await expect(dialog.getByText(/Lege zuerst einen Kunden an/)).toBeVisible()
+    }
+    await page.keyboard.press('Escape')
+  })
+
+  test('Aufräumen: Vorschau-Einträge zurücksetzen', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Zurücksetzen' }).click()
+    await expect(page.getByText('Heute noch nichts erfasst')).toBeVisible()
+  })
+})
