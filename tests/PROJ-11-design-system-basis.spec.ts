@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 import { hasTestUser, SKIP_REASON } from './helpers/env'
 
+// Öffentliche Supabase-Adresse (.env.local) für die Prüfung der erlaubten Hosts
+try {
+  ;(process as unknown as { loadEnvFile: (path: string) => void }).loadEnvFile('.env.local')
+} catch {
+  // Datei fehlt
+}
+
 // PROJ-11: Design-System-Basis
 // Seit PROJ-2 sind alle Seiten geschützt: Die Tests laufen mit der gespeicherten Anmeldung des Testkontos.
 test.skip(!hasTestUser, SKIP_REASON)
@@ -460,7 +467,10 @@ test.describe('PROJ-11: Farben, Schrift, Kontrast', () => {
     await page.waitForLoadState('networkidle')
     // Erlaubt ist nur die Datenbank-Gesundheitsprüfung (läuft serverseitig, nicht im Browser).
     expect(external.filter((u) => /fonts\.(googleapis|gstatic)\.com/.test(u))).toEqual([])
-    expect(external).toEqual([])
+    // Seit PROJ-4 liest die Startseite im Browser Daten aus dem eigenen Supabase-Projekt: das ist erlaubt,
+    // sonst keine fremden Hosts.
+    const own = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://invalid.example').hostname
+    expect(external.filter((u) => new URL(u).hostname !== own)).toEqual([])
   })
 })
 

@@ -265,16 +265,25 @@ test.describe('mit Anmeldung', () => {
     })
   }
 
-  test('AC: Einträge liegen in der Datenbank: ein zweites Gerät (neuer Browser) sieht sie, die Vorbelegung gilt geräteübergreifend', async ({ browser }) => {
-    const context = await browser.newContext({ storageState: 'tests/.auth/user.json', viewport: { width: 1280, height: 900 } })
-    const page = await context.newPage()
+  test('AC: Einträge liegen in der Datenbank: ein zweites Gerät (neuer Browser) sieht sie, die Vorbelegung gilt geräteübergreifend', async ({ page, browser }) => {
+    // Frischer Eintrag auf dem Testkunden, dann sofort das zweite Gerät (andere Testdateien legen parallel
+    // Einträge an, darum direkt hintereinander und mit dem Testkunden als erwartetem letzten Ziel).
     await page.goto('/')
-    await expect(page.getByText(`Konzept ${run}`)).toBeVisible()
-    await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
-    // Zuletzt benutzter Kunde ist auch auf dem zweiten Gerät vorbelegt (welcher, hängt von parallelen
-    // Testläufen ab, darum nur: ein Kunde ist gewählt, ein Projekt ebenfalls).
-    await expect(page.getByLabel('Kunde')).not.toContainText('Kunde wählen')
-    await expect(page.getByLabel('Projekt')).not.toContainText('Projekt wählen')
+    await openForm(page)
+    await pickCustomer(page)
+    await page.getByLabel('Dauer', { exact: true }).fill('0:01')
+    await page.getByLabel('Beschreibung (optional)').fill(`Zweites Gerät ${run}`)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    const context = await browser.newContext({ storageState: 'tests/.auth/user.json', viewport: { width: 1280, height: 900 } })
+    const second = await context.newPage()
+    await second.goto('/')
+    await expect(second.getByText(`Konzept ${run}`)).toBeVisible()
+    await second.getByRole('button', { name: 'Zeit erfassen' }).first().click()
+    // Das zuletzt benutzte Ziel ist vorbelegt (bei parallelen Testläufen kann es ein anderer Testkunde sein)
+    await expect(second.getByLabel('Kunde')).not.toContainText('Kunde wählen')
+    await expect(second.getByLabel('Projekt')).not.toContainText('Projekt wählen')
     await context.close()
   })
 
