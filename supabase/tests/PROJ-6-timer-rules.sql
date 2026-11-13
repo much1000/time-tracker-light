@@ -70,9 +70,10 @@ begin
   -- archiviertes Projekt: Stopp darf speichern, direktes Anlegen und Start nicht
   perform set_config('request.jwt.claims', json_build_object('sub', u1, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  res := public.start_timer(pid);
   reset role;
-  update public.running_timers set started_at = '2026-11-02 09:00:30+01' where owner_id = u1;
+  -- Timer mit Startzeit in der Vergangenheit direkt anlegen (die Startzeit lässt sich nachträglich nicht ändern)
+  delete from public.running_timers where owner_id = u1;
+  insert into public.running_timers(owner_id, project_id, started_at) values (u1, pid, '2026-11-02 09:00:30+01');
   set local role authenticated;
   perform public.archive_customer(c.id);
   begin insert into public.time_entries(project_id, entry_date, duration_minutes, billable_minutes) values (pid, '2026-11-02', 10, 10); r := r || 'ARCHIVED DIRECT INSERT ACCEPTED(bad)' || E'\n';
