@@ -110,6 +110,16 @@ describe('Formular «Zeit erfassen»', () => {
     expect(within(dialog).queryByRole('button', { name: 'Speichern' })).not.toBeInTheDocument()
   })
 
+  it('lässt Kunde und Projekt leer, wenn das zuletzt benutzte Ziel archiviert ist', async () => {
+    const { customerId } = await seedCustomerWithEntry()
+    await customers.createCustomer({ code: 'ZWE', name: 'Zweiter Kunde' })
+    await customers.archiveCustomer(customerId)
+    render(<TodayView />)
+    await openForm()
+    expect(screen.getByLabelText('Kunde')).toHaveTextContent('Kunde wählen')
+    expect(screen.getByLabelText('Projekt')).toBeDisabled()
+  })
+
   it('belegt Kunde, Projekt und Datum vor und folgt mit «Verrechenbar» der Dauer', async () => {
     await seedCustomerWithEntry()
     render(<TodayView />)

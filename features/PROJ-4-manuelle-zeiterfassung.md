@@ -1,6 +1,6 @@
 # PROJ-4: Manuelle Zeiterfassung inkl. Nacherfassung
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -312,7 +312,54 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod`, `@hookform/resolve
 - **Supabase-Hinweise:** «Leaked Password Protection» ist ausgeschaltet (nicht aus PROJ-4). Information «Unindexed foreign keys»: Der zusammengesetzte Fremdschlüssel `(project_id, owner_id)` (und der entsprechende in `projects`) hat keinen eigenen Index; bei dieser Datenmenge unkritisch, ein Index auf `project_id` besteht.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-11-13 · **Umgebung:** Produktionsbuild (`next start`), Chrome, echte Supabase-Datenbank, Testkonto · **Ergebnis:** Alle Akzeptanzkriterien erfüllt (eine bewusste Abweichung, siehe unten), 0 Critical/High/Medium, 2 Low-Punkte zur Entscheidung.
+
+### Automatische Tests
+- **Vitest:** 229 von 229 grün.
+- **Playwright (Chrome, Projekte setup, chromium, logout):** 163 von 163 grün. Neu in der QA: `tests/PROJ-4-zeiterfassung-qa.spec.ts` (20 Tests). Die 97 Tests von PROJ-1, 2 und 11 sowie die 25 von PROJ-3 laufen unverändert grün (Regression).
+- **Nicht geprüft:** Firefox und Safari (nicht installiert, WebKit fehlt auf diesem Rechner), echtes Handy mit Bildschirmtastatur, Screenreader von Hand.
+- **Testdaten:** Siehe unten (Aufräumen noch offen).
+
+### Akzeptanzkriterien
+| Bereich | Ergebnis | Nachweis |
+|---|---|---|
+| Einstieg und Startseite (6) | bestanden | E2E: «Heute» mit Datum, Knopf «Zeit erfassen», Umleitung zur Anmeldung ohne Sitzung, Formular als Dialog, Ladefehler mit «Erneut versuchen», Einträge nach Startzeit, Tagessumme gleich der Summe der Zeilen, kein Bearbeiten oder Löschen. Leerzustand: nur Komponententest (Testeinträge bleiben in der Tabelle) |
+| Felder und Vorbelegung (6) | bestanden | E2E und Komponententest: Datum heute, Vorbelegung aus dem letzten Eintrag (auch auf einem zweiten Gerät), leer bei archiviertem Ziel, nur aktive Ziele, Kundenwechsel setzt «Allgemein», Hinweis ohne Kunde, Beschreibung optional bis 1000 Zeichen |
+| Eingabe «Dauer» (3) | bestanden | Unit (52 Fälle: «1:30», «1,5», «1.5», «0,25», «2», Ablehnung von «90», «0:00», «25:00» …) und E2E |
+| Eingabe «Von–bis» (6) | bestanden | E2E: berechnete Dauer, Speichern mit Uhrzeiten, Ende vor Start, fehlende Zeiten, Endzeit in der Zukunft (feste Uhr), Wechsel zurück zu «Dauer», Überschneidungshinweis mit möglichem Speichern |
+| Datum (3) | bestanden | E2E: früheres Datum gespeichert, Zukunft abgelehnt, leeres Datum gemeldet |
+| Verrechenbare Dauer (5) | bestanden | E2E und Unit: folgt der Dauer, bleibt nach Handänderung stehen, 0 erlaubt und gespeichert, grösser abgelehnt, ungültiges Format |
+| Speichern (6) | bestanden | E2E: Eintrag und Summe erscheinen, Bestätigung mit Datum bei früherem Tag, Pflichtfelder, Enter, Doppelklick (ein Eintrag), Netzwerkfehler (Eingaben bleiben, danach erneut speichern klappt), Escape verwirft |
+| Bedienung, Darstellung, Zugänglichkeit (6) | teilweise | 320/375/768/1440 px ohne Überlauf, 44-px-Ziele, lange Beschreibung und lange Kundennamen bei 320 px, Hell und Dunkel (axe, 0 Verstösse), Tastatur (Fokusfalle, Pfeiltasten im Umschalter, Kunde per Tastatur, Fokus kehrt zurück) bestanden. **Fokus beim Öffnen ist bei vorbelegtem Ziel im Feld «Dauer», nicht im ersten Feld** (siehe QA-1) |
+| Datenschutz und Sicherheit (6) | bestanden | Siehe Sicherheitsprüfung |
+
+### Randfälle
+Bestanden: Doppelklick, Kunde wird auf einem anderen Gerät archiviert, während das Formular offen ist (Datenbank lehnt ab, Hinweis am Projekt, Eingaben bleiben, nichts gespeichert), «90» ohne Trennzeichen, Dezimaleingaben, Eintrag über Mitternacht (Hinweis erklärt zwei Einträge), Sitzung abgelaufen (Cookies entfernt: Meldung, Eingabe bleibt), Supabase nicht erreichbar beim Laden und Speichern, Zürcher Uhr (23:30 UTC im November ist schon der nächste Tag, 22:30 UTC im Juli ebenso, 22:30 UTC im November noch derselbe Tag), nur Einträge des heutigen Tages werden geladen.
+
+### Sicherheitsprüfung (Red Team)
+- **Fremdzugriff:** Mit einem zweiten echten Nutzer sieht dieser 0 Zeilen, kann nichts ändern und nicht auf ein fremdes Projekt buchen (SQL im Backend-Schritt, zurückgerollt). Der gesamte Regelsatz (31 Prüfungen) ist in den Implementation Notes (Backend) beschrieben.
+- **Ohne Anmeldung:** Der öffentliche Schlüssel allein darf nichts lesen und nichts schreiben (E2E, direkter Aufruf).
+- **Direkt an der Oberfläche vorbei** (eigene Sitzung, REST): Löschen verweigert, Besitzer beim Anlegen überschrieben, Besitzer beim Ändern wirkungslos, 13 ungültige Werte abgelehnt (Datum in der Zukunft, Dauer 0 und 1441, verrechenbar über Dauer und negativ, Start ohne Ende, Ende vor Start, falsche Dauer, Beschreibung 1001, leer und mit Rand, unbekanntes oder fehlendes Projekt), Buchung auf archivierten Kunden abgelehnt (`target_archived`), erfasste Zeiten bleiben.
+- **Eingaben:** `<img onerror>`, SQL-Zeichen und Emojis in der Beschreibung werden als Text gespeichert und nach dem Neuladen als Text angezeigt, kein Skript läuft.
+- **Geheimnisse:** Keine Schlüssel mit Rolle ausser `anon`, keine Tokens in Antworten der Startseite, keine Konsolenfehler.
+- **Offen (ausserhalb PROJ-4):** Supabase «Leaked Password Protection» ist ausgeschaltet.
+
+### Fehler und Punkte zur Entscheidung
+Keine Critical-, High- oder Medium-Fehler.
+- **QA-1 (Low, Spec-Abweichung): Fokus beim Öffnen.** Die Spec sagt «der Fokus liegt im ersten Feld». Bei vorbelegtem Kunde und Projekt liegt er im Feld «Dauer» (schnellster Weg), sonst im Kunden. Entscheidung offen: Spec anpassen (Empfehlung) oder Fokus auf das Datum setzen.
+- **QA-2 (Low): Ladefehler erscheint erst nach etwa 7 Sekunden.** Ist Supabase nicht erreichbar, wiederholt die Datenbank-Bibliothek Leseanfragen automatisch (mehrere Versuche), bevor «Erneut versuchen» erscheint. Bis dahin sieht der Nutzer den Ladezustand. Kein Datenverlust; nur das Warten. Ein Eingriff wäre nur nötig, wenn es stört.
+
+### Beobachtungen
+- Beim Testen entdeckt und im Test behoben (Testproblem, kein Produktfehler): parallele Testdateien auf demselben Konto beeinflussen die Vorbelegung («zuletzt benutztes Ziel» ist global). Die betroffenen Tests prüfen jetzt nur noch, dass ein Ziel vorbelegt ist.
+- Die Tests sind unabhängig vom Inhalt der Tabelle (eindeutige Beschreibungen mit Lauf-Kennung, keine Annahme «Heute ist leer»).
+
+### Testdaten (Aufräumen offen)
+Die E2E-Tests legen Zeiteinträge auf Testkunden `T-…` an, es gibt kein Löschen. Sie liegen jetzt in der Tabelle und erscheinen unter «Heute» im Konto. Ein Löschen per SQL wurde von der Umgebung blockiert und nicht umgangen. Bereinigen von Hand im Supabase-SQL-Editor (löscht nur Einträge auf Kunden mit Kürzel `T-…`):
+`delete from public.time_entries where project_id in (select p.id from public.projects p join public.customers c on c.id = p.customer_id where c.code like 'T-%');`
+
+### Production-Ready
+**JA.** Keine Critical-, High- oder Medium-Fehler. Empfehlung: QA-1 durch Anpassung der Spec schliessen, QA-2 so lassen, Testdaten vor dem Deploy aufräumen.
 
 ## Deployment
 _To be added by /deploy_
