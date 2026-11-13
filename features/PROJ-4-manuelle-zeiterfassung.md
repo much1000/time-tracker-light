@@ -1,6 +1,6 @@
 # PROJ-4: Manuelle Zeiterfassung inkl. Nacherfassung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -362,4 +362,9 @@ Die E2E-Tests legen Zeiteinträge auf Testkunden `T-…` an, es gibt kein Lösch
 **JA.** Keine Critical-, High- oder Medium-Fehler. Empfehlung: QA-1 durch Anpassung der Spec schliessen, QA-2 so lassen, Testdaten vor dem Deploy aufräumen.
 
 ## Deployment
-_To be added by /deploy_
+- **Produktions-URL:** https://time-tracker-light.vercel.app (Startseite «/» mit «Heute» und «Zeit erfassen»)
+- **Deployed:** 2026-11-13 (Push auf `main`, Vercel-Auto-Deploy), Tag `v1.4.0-PROJ-4`
+- **Datenbank:** Migration `supabase/migrations/20261113000000_time_entries.sql` war vor dem Push auf dem Supabase-Projekt `time-tracker-light` angewendet (es gibt nur diese eine Datenbank für Entwicklung und Produktion).
+- **Neue Umgebungsvariablen:** keine.
+- **Prüfung in Produktion:** Anmeldeseite und Startseite laden, das Formular lädt Kunden und Projekte aus der Datenbank, Zürcher Uhr (Mitternachtsgrenze, Sommerzeit) und der Test der Tab-Leiste laufen gegen die Produktions-URL grün (8 Tests). Die schreibenden Tests wurden in Produktion nicht wiederholt, um keine weiteren Testeinträge anzulegen.
+- **Offen:** Die Testeinträge der E2E-Läufe (44, alle auf Kunden mit Kürzel `T-…`) liegen noch in der Tabelle und erscheinen unter «Heute»; Löschen per SQL durch den Nutzer (siehe QA-Abschnitt). Fehlerverfolgung (Sentry) und Lighthouse sind weiterhin nicht eingerichtet.
