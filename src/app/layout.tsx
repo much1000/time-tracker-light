@@ -43,7 +43,7 @@ export default function RootLayout({
         >
           {children}
           {/* Am Handy über der Tab-Leiste (3.5 rem) statt darüber hinweg. */}
-          <Toaster mobileOffset={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }} />
+          <Toaster mobileOffset={{ bottom: 'calc(8.5rem + env(safe-area-inset-bottom))' }} />
         </ThemeProvider>
       </body>
     </html>

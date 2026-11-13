@@ -1,6 +1,7 @@
+import { TimerSection } from '@/components/timer/timer-section'
 import { TodayView } from '@/components/time-entries/today-view'
 
-// Startseite: Zeit erfassen und heutige Einträge. PROJ-6 (Timer) ergänzt den Timer an dieser Stelle.
+// Startseite: Timer, Zeit erfassen und heutige Einträge.
 export default function StartPage() {
-  return <TodayView />
+  return <TodayView timerSection={<TimerSection />} />
 }

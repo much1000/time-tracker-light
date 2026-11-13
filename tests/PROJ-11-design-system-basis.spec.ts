@@ -306,6 +306,9 @@ test.describe('PROJ-11: Theme', () => {
   test('AC: Theme-Schalter ist per Tastatur bedienbar', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await page.goto('/')
+    // Seit PROJ-4 und PROJ-6 lädt die Startseite Daten: erst bedienen, wenn alles geladen und bereit ist
+    await expect(page.getByRole('status', { name: 'Wird geladen' })).toHaveCount(0)
+    await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: 'Darstellung', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('menu')).toBeVisible()

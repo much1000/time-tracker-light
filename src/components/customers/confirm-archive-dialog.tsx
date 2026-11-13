@@ -20,6 +20,9 @@ interface ConfirmArchiveDialogProps {
   description: string
   busy: boolean
   onConfirm: () => void
+  // Beschriftung des Bestätigen-Knopfs (Standard: Archivieren), auch für andere Rückfragen nutzbar
+  confirmLabel?: string
+  busyLabel?: string
 }
 
 // Rückfrage vor dem Archivieren. Archivieren ist umkehrbar und löscht nichts,
@@ -31,6 +34,8 @@ export function ConfirmArchiveDialog({
   description,
   busy,
   onConfirm,
+  confirmLabel = 'Archivieren',
+  busyLabel = 'Wird archiviert …',
 }: ConfirmArchiveDialogProps) {
   const restoreFocus = useRestoreFocus(open)
   return (
@@ -47,10 +52,10 @@ export function ConfirmArchiveDialog({
             {busy ? (
               <>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
-                Wird archiviert …
+                {busyLabel}
               </>
             ) : (
-              'Archivieren'
+              confirmLabel
             )}
           </Button>
         </AlertDialogFooter>

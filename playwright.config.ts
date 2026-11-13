@@ -23,13 +23,21 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], channel, storageState: STORAGE_STATE },
       dependencies: ['setup'],
-      testIgnore: /(auth\.setup|logout\.spec)\.ts/,
+      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
+    },
+    // Der Timer ist pro Konto nur einmal da (und die Leiste erscheint auf jeder Seite): Die Timer-Tests
+    // laufen allein, nachdem alle anderen fertig sind.
+    {
+      name: 'timer',
+      testMatch: /PROJ-6-timer\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], channel, storageState: STORAGE_STATE },
+      dependencies: ['chromium'],
     },
     {
       name: 'Mobile Safari',
       use: { ...devices['iPhone 13'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
-      testIgnore: /(auth\.setup|logout\.spec)\.ts/,
+      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
     },
     // Abmelden beendet derzeit alle Sitzungen des Kontos und läuft deshalb zuletzt,
     // nachdem alle anderen Tests mit der gespeicherten Anmeldung fertig sind.
@@ -37,7 +45,7 @@ export default defineConfig({
       name: 'logout',
       testMatch: /logout\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], channel },
-      dependencies: ['chromium'],
+      dependencies: ['chromium', 'timer'],
     },
   ],
   webServer: {

@@ -1,11 +1,12 @@
 'use client'
 
 import { Clock, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/customers/load-states'
 import { EntryRow } from '@/components/time-entries/entry-row'
 import { TimeEntryFormDialog } from '@/components/time-entries/time-entry-form-dialog'
+import { useTimer } from '@/components/timer/timer-provider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,11 +17,13 @@ import { sumEntries } from '@/lib/time-entries/validation'
 import { formatDate, formatLongDate, todayInZurich } from '@/lib/time-entries/zurich'
 
 // Startseite: Knopf «Zeit erfassen» und die heute erfassten Einträge mit Tagessumme.
-export function TodayView() {
+export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
   const today = todayInZurich()
+  // Nach einem Stopp (neue Einträge) lädt die Liste neu
+  const { entriesVersion } = useTimer()
   const { state, reload, retry } = useRepositoryData(
     () => getTimeEntriesRepository().listEntries(today),
-    today
+    `${today}-${entriesVersion}`
   )
   const [creating, setCreating] = useState(false)
 
@@ -39,6 +42,8 @@ export function TodayView() {
           Zeit erfassen
         </Button>
       </div>
+
+      {timerSection}
 
       {state.status === 'loading' && (
         <div role="status" aria-label="Wird geladen" className="space-y-3">

@@ -9,6 +9,7 @@ import { ConfirmArchiveDialog } from '@/components/customers/confirm-archive-dia
 import { CustomerFormDialog } from '@/components/customers/customer-form-dialog'
 import { LoadError, LoadingCards } from '@/components/customers/load-states'
 import { ProjectFormDialog } from '@/components/customers/project-form-dialog'
+import { StartButton } from '@/components/timer/start-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -188,6 +189,11 @@ function CustomerDetailView({
                 <ProjectLabel project={project} />
                 {!customer.archived && (
                   <div className="flex flex-wrap gap-2">
+                    <StartButton
+                      projectId={project.id}
+                      projectName={project.name}
+                      customerCode={customer.code}
+                    />
                     <Button
                       type="button"
                       variant="outline"

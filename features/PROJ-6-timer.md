@@ -272,6 +272,32 @@ Keine neuen. Vorhanden und genutzt: `@supabase/ssr`, `@supabase/supabase-js` (Zu
 ### Offen
 - **Testdaten:** Die E2E-Tests legen Testkunden `T-…` und Zeiteinträge an (kein Löschen). Zum Aufräumen die Zeiteinträge auf `T-…`-Kunden per SQL löschen (Skript siehe Spec PROJ-4, QA-Abschnitt).
 
+## Implementation Notes (Frontend)
+**Stand:** 2026-11-14. Die Oberfläche steht vollständig und läuft gegen die echten Datenbank-Funktionen (keine Platzhalter-Phase, wie im Tech Design vereinbart).
+
+### Was gebaut wurde
+- **Anbindung** `src/components/timer/timer-provider.tsx` (im App-Rahmen für alle Seiten): lädt den Timer samt Serverzeit beim Öffnen und beim Zurückkehren in den Tab, führt Start, Wechsel, Stopp und Verwerfen aus (nie zwei Aktionen gleichzeitig, Fehler als Meldung, Zustand bleibt dann unverändert), meldet Ergebnisse («MUS · Allgemein: 0:47 gespeichert. Timer für ABC · Relaunch gestartet.» bzw. «Unter einer Minute, nicht gespeichert.»), speichert die Beschreibung leise, zählt `entriesVersion` hoch (die Liste «Heute» lädt dann neu) und hält den **Tab-Titel** aktuell («0:47 · MUS · Time Tracker Light», jede Minute, auch wenn eine Seite ihren eigenen Titel setzt). Ohne Anbindung (Tests einzelner Komponenten) läuft nie ein Timer.
+- **Startseite** `src/app/(app)/page.tsx`: Abschnitt «Timer» (`timer-section.tsx`) mit der **Karte «Timer läuft»** (`timer-card.tsx`: Kürzel, Kunde, Projekt, Startzeit, laufende Zeit h:mm:ss, Hinweis ab 10 Stunden, Beschreibung mit Speichern nach etwa 1,5 Sekunden Pause und beim Verlassen des Feldes, «Stopp», «Verwerfen» mit Rückfrage) und der **Liste «Projekt starten»** (`project-start-list.tsx`, alle aktiven Projekte nach Kunde gruppiert). Danach «Zeit erfassen» und «Heute» wie bisher.
+- **Leiste** `timer-bar.tsx` auf allen anderen Seiten: am Laptop oben und klebend, am Handy fest über der Tab-Leiste mit Platzhalter am Seitenende; Link zur Startseite, «Stopp»; auf der Startseite ausgeblendet.
+- **Start-Knopf** `start-button.tsx` bei jedem aktiven Projekt auf der Startseite und der Kundenseite (`customer-detail.tsx`); beim laufenden Projekt steht «Läuft» (Symbol und Text).
+- **Formate** `src/lib/timer/format.ts`: laufende Zeit aus Startzeit und Serverzeit (nicht aus einem mitlaufenden Zähler), Uhrzeit des Starts in Zürich, Tab-Titel, Schwelle 10 Stunden.
+- Kleinere Änderungen: Der Rückfrage-Dialog aus PROJ-3 hat jetzt anpassbare Beschriftungen; die Bestätigungsmeldungen (Sonner) stehen am Handy höher, damit sie die Leiste nicht verdecken. Keine neuen Pakete.
+
+### Abweichungen und Entscheidungen
+- **Die Liste «Projekt starten» ist immer sichtbar** (nicht einklappbar). Bei vielen Kunden rutscht «Heute» weiter nach unten; bei Bedarf in `/qa` als Punkt aufnehmen.
+- **Die Leiste am Handy hat eine feste Höhe und verschiebt die Bestätigungsmeldungen** (global höherer Abstand, auch für PROJ-3 und PROJ-4).
+- **Stopp aus der Leiste** schickt den zuletzt gespeicherten Text der Beschreibung (die Leiste hat kein eigenes Textfeld).
+- **Test-Aufbau:** Die Timer-Tests laufen als eigenes Playwright-Projekt `timer` nach allen anderen (ein Konto hat nur einen Timer, und die Leiste erscheint auf jeder Seite). Die Tests von PROJ-4 und PROJ-11 wurden an die neue Startseite angepasst (Wartezeit auf geladene Daten beim Tastaturtest des Theme-Schalters).
+
+### Tests
+- **Vitest:** 272 von 272 grün (neu: 32 zu laufender Zeit, Serveruhr-Versatz, Zeitzone, Tab-Titel in `format.test.ts` und zur Oberfläche in `timer-ui.test.tsx`: Start, Wechsel mit Meldung, unter einer Minute, Fehler, Karte mit Serverzeit, Warnung ab 10 Stunden, Stopp mit Text, Beschreibung nach Pause und beim Verlassen, Rückfrage beim Verwerfen, Leiste, Tab-Titel).
+- `tsc` sauber, Lint ohne Fehler, Build erfolgreich.
+- **E2E gegen die echte Datenbank** (`tests/PROJ-6-timer.spec.ts`, Projekt `timer`, 27 Tests, Chrome, Produktionsbuild): 12 Datenbank-Tests (siehe Backend) und 15 Oberflächentests: Start über die Liste (Karte, «Läuft», Sekunden laufen), Doppelklick, Beschreibung nach dem Neuladen und auf einem zweiten Gerät, Leiste und Tab-Titel auf anderen Seiten, «Läuft» auf der Kundenseite, Wechsel, Verwerfen mit Rückfrage und Fokus, Fehler beim Start (kein Netz), Layout bei 320/375/768/1440 px (kein Überlauf, 44-px-Ziele, Leiste verdeckt die Tab-Leiste und das Seitenende nicht), lange Namen bei 320 px, axe in Hell und Dunkel (Startseite, Rückfrage, Leiste), abgelaufene Sitzung beim Stopp, und der **ganze Ablauf** (Start, Kunde wird archiviert, Stopp nach über einer Minute speichert Einträge mit Uhrzeiten und Beschreibung, erscheinen unter «Heute»).
+- **Gesamtlauf:** Alle 190 E2E-Tests (PROJ-1, 2, 3, 4, 6, 11) grün.
+- **Sichtprüfung** (Chrome, 375 und 1280 px): Liste, Karte, Leiste, Kundenseite, Rückfrage.
+- **Nicht geprüft:** Firefox und Safari, echtes Handy (Bildschirmtastatur, Sperrbildschirm, Hintergrund-Tab), Screenreader von Hand, Verhalten über Mitternacht in der Oberfläche (nur in der Datenbank geprüft).
+- **Testdaten:** Die Tests legen Testkunden `T-…` und Zeiteinträge an (kein Löschen). 15 übrig gebliebene aktive Testkunden wurden über die Oberfläche archiviert. Die Zeiteinträge auf `T-…`-Kunden müssen per SQL gelöscht werden.
+
 ## QA Test Results
 _To be added by /qa_
 
