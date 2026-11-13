@@ -1,6 +1,6 @@
 # PROJ-4: Manuelle Zeiterfassung inkl. Nacherfassung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -40,7 +40,7 @@
 - [ ] Angenommen der Nutzer ist angemeldet, wenn er die Startseite öffnet, dann sieht er den Knopf «Zeit erfassen» und darunter den Abschnitt «Heute» mit den heute erfassten Einträgen und der Tagessumme (gearbeitet und verrechenbar).
 - [ ] Angenommen heute ist noch nichts erfasst, wenn der Nutzer die Startseite öffnet, dann sieht er im Abschnitt «Heute» einen Leerzustand mit Hinweis und dem Knopf «Zeit erfassen».
 - [ ] Angenommen der Nutzer ist nicht angemeldet, wenn er die Startseite öffnet, dann landet er auf der Anmeldeseite und sieht keine Daten.
-- [ ] Angenommen der Nutzer klickt auf «Zeit erfassen», wenn sich das Formular öffnet, dann erscheint es als Dialog am Laptop und als Blatt von unten am Handy, der Fokus liegt im ersten Feld, und alle Felder haben sichtbare Beschriftungen.
+- [ ] Angenommen der Nutzer klickt auf «Zeit erfassen», wenn sich das Formular öffnet, dann erscheint es als Dialog am Laptop und als Blatt von unten am Handy, der Fokus liegt im Feld «Dauer», wenn Kunde und Projekt vorbelegt sind (sonst in der Kundenauswahl), und alle Felder haben sichtbare Beschriftungen.
 - [ ] Angenommen die Daten laden, wenn die Antwort noch aussteht, dann sieht der Nutzer einen Ladezustand; schlägt das Laden fehl, dann erscheint eine Fehlermeldung mit «Erneut versuchen».
 - [ ] Angenommen der Abschnitt «Heute» enthält Einträge, wenn die Liste angezeigt wird, dann stehen die Einträge nach Startzeit, bei Einträgen ohne Uhrzeit nach Erfassungszeitpunkt, mit Kürzel und Projekt, Beschreibung (falls vorhanden), Dauer und verrechenbarer Dauer, und es gibt keine Knöpfe zum Bearbeiten oder Löschen (kommt mit PROJ-5).
 
@@ -347,7 +347,7 @@ Bestanden: Doppelklick, Kunde wird auf einem anderen Gerät archiviert, während
 
 ### Fehler und Punkte zur Entscheidung
 Keine Critical-, High- oder Medium-Fehler.
-- **QA-1 (Low, Spec-Abweichung): Fokus beim Öffnen.** Die Spec sagt «der Fokus liegt im ersten Feld». Bei vorbelegtem Kunde und Projekt liegt er im Feld «Dauer» (schnellster Weg), sonst im Kunden. Entscheidung offen: Spec anpassen (Empfehlung) oder Fokus auf das Datum setzen.
+- **QA-1 (Low, Spec-Abweichung): Fokus beim Öffnen.** Die Spec sagt «der Fokus liegt im ersten Feld». Bei vorbelegtem Kunde und Projekt liegt er im Feld «Dauer» (schnellster Weg), sonst im Kunden. Entschieden am 2026-11-13: Spec angepasst (Akzeptanzkriterium «Einstieg und Startseite»), kein Code geändert.
 - **QA-2 (Low): Ladefehler erscheint erst nach etwa 7 Sekunden.** Ist Supabase nicht erreichbar, wiederholt die Datenbank-Bibliothek Leseanfragen automatisch (mehrere Versuche), bevor «Erneut versuchen» erscheint. Bis dahin sieht der Nutzer den Ladezustand. Kein Datenverlust; nur das Warten. Ein Eingriff wäre nur nötig, wenn es stört.
 
 ### Beobachtungen
