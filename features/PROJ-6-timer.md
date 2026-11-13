@@ -1,6 +1,6 @@
 # PROJ-6: Timer
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -115,10 +115,10 @@
 - **Design:** `docs/design-system.md`, WCAG AA, shadcn/ui vor eigenen Komponenten.
 
 ## Open Questions
-- [ ] **Endzeit «24:00» bei der Aufteilung über Mitternacht:** PROJ-4 kennt Uhrzeiten nur von 00:00 bis 23:59. Ein Eintrag bis Mitternacht endet fachlich um 24:00. Ob 24:00 als Anzeige und Wert zulässig wird oder ob der Eintrag um 23:59 endet (eine Minute weniger), klärt `/architecture` zusammen mit der Anpassung der PROJ-4-Regeln.
-- [ ] **Anpassung der PROJ-4-Regeln:** Ein Timer-Eintrag auf ein inzwischen archiviertes Projekt muss erlaubt sein (Spec PROJ-3: Timer läuft nach dem Archivieren weiter). Die Datenbankregel «nur aktive Ziele beim Anlegen» aus PROJ-4 braucht dafür eine Ausnahme für den Stopp eines Timers. Klärung in `/architecture`.
-- [ ] **Zeit im Tab-Titel:** Aktualisierung jede Sekunde oder jede Minute (Akku, Ablenkung)? Entscheidung beim Bau der Oberfläche.
-- [ ] **Speichern der Beschreibung im laufenden Timer:** Nach wie vielen Sekunden Pause in der Eingabe gespeichert wird, klärt `/architecture`.
+- [x] **Endzeit «24:00» bei der Aufteilung über Mitternacht (entschieden in `/architecture`: 24:00 ist in der Datenbank als Ende eines Tages zulässig, die Formular-Eingabe bleibt bis 23:59):** PROJ-4 kennt Uhrzeiten nur von 00:00 bis 23:59. Ein Eintrag bis Mitternacht endet fachlich um 24:00. Ob 24:00 als Anzeige und Wert zulässig wird oder ob der Eintrag um 23:59 endet (eine Minute weniger), klärt `/architecture` zusammen mit der Anpassung der PROJ-4-Regeln.
+- [x] **Anpassung der PROJ-4-Regeln (entschieden in `/architecture`: Ausnahme nur innerhalb der Stopp-Funktion):** Ein Timer-Eintrag auf ein inzwischen archiviertes Projekt muss erlaubt sein (Spec PROJ-3: Timer läuft nach dem Archivieren weiter). Die Datenbankregel «nur aktive Ziele beim Anlegen» aus PROJ-4 braucht dafür eine Ausnahme für den Stopp eines Timers. Klärung in `/architecture`.
+- [x] **Zeit im Tab-Titel (entschieden in `/architecture`: jede Minute):** Aktualisierung jede Sekunde oder jede Minute (Akku, Ablenkung)? Entscheidung beim Bau der Oberfläche.
+- [x] **Speichern der Beschreibung im laufenden Timer (entschieden in `/architecture`: nach etwa 1,5 Sekunden Pause und beim Verlassen des Feldes, beim Stopp mitgeschickt):** Nach wie vielen Sekunden Pause in der Eingabe gespeichert wird, klärt `/architecture`.
 
 ## Decision Log
 
@@ -140,12 +140,118 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Der laufende Timer liegt als eigene Tabelle in Supabase (höchstens eine Zeile pro Nutzer), nicht im Browser | Geräteübergreifend, überlebt das Schliessen des Browsers; die Eindeutigkeit in der Tabelle verhindert zwei Timer auch an der Oberfläche vorbei | 2026-11-13 |
+| Start/Wechsel, Stopp und Verwerfen als je ein unteilbarer Schritt (Funktion) in der Datenbank | Keine halben Zustände bei Verbindungsabbruch (zwei Timer, gespeichert aber weiterlaufend); gleichzeitiger Stopp auf zwei Geräten ergibt nur einen Eintrag | 2026-11-13 |
+| Der Browser darf Timer-Zeilen weder anlegen noch löschen und nur die Beschreibung ändern; die Funktionen setzen Startzeit und Projekt | Verhindert falsche Startzeiten und fremde Projekte; die Funktionen prüfen innen den Besitzer und sind für anon gesperrt | 2026-11-13 |
+| Start- und Endzeit von der Serveruhr, angezeigt und aufgeteilt nach der Uhr in Zürich | Geräteuhr oder Zeitzone dürfen Einträge nicht verfälschen (wie PROJ-4) | 2026-11-13 |
+| Aufteilung nach Kalendertagen erst beim Stopp, kein Hintergrunddienst um Mitternacht | Kein Serverdienst auf dem kostenlosen Plan nötig; Warnung ab 10 Stunden Laufzeit statt automatischem Stopp | 2026-11-13 |
+| Endzeit 24:00 in der Datenbank zulässig (Ende eines Tages), Formular-Eingabe bleibt bis 23:59 | Ein Eintrag bis Mitternacht verliert sonst jede Nacht eine Minute; löst die offene Frage der Spec | 2026-11-13 |
+| Ausnahme von der Regel «nur aktive Ziele» nur innerhalb der Stopp-Funktion für Timer auf inzwischen archivierte Projekte | Spec PROJ-3: Archivieren stoppt den Timer nicht; die Zeit darf nicht verloren gehen; von aussen nicht auslösbar | 2026-11-13 |
+| Einträge aus dem Timer bekommen kein eigenes Merkmal «vom Timer»; verrechenbar = Dauer, Beschreibung des Timers in jedem Tageseintrag | Ein einziges Eintragsmodell; Korrekturen in PROJ-5 gelten für alle Einträge gleich | 2026-11-13 |
+| Beschreibung im laufenden Timer wird nach etwa 1,5 Sekunden Eingabepause und beim Verlassen des Feldes gespeichert und mit der Stopp-Anfrage mitgeschickt | Text ist auf jedem Gerät sichtbar und geht nicht verloren; der Stopp hat immer den letzten Stand | 2026-11-13 |
+| Laufende Zeit wird aus Startzeit und Serverzeit (beim Laden mitgeliefert) berechnet; Zustand wird beim Zurückkehren in den Tab neu geladen | Stimmt nach Schlaf, Tab-Wechsel und bei falscher Geräteuhr | 2026-11-13 |
+| Tab-Titel aktualisiert jede Minute, die Karte zeigt Sekunden | Weniger Ablenkung und Akku; löst die offene Frage der Spec | 2026-11-13 |
+| Kein Live-Abgleich (Realtime) im MVP: Neuladen beim Zurückkehren in den Tab und bei jeder Aktion | Genügt für einen Einzelnutzer; spart Komplexität und Verbindungen auf dem kostenlosen Plan | 2026-11-13 |
+| Bau-Reihenfolge: zuerst Datenbank (/backend), dann Oberfläche (/frontend), keine Platzhalter-Phase | Ein Platzhalter-Timer würde echte, nicht löschbare Einträge erzeugen oder wirkungslos sein; die echten Funktionen sind der Kern des Features | 2026-11-13 |
+| Direkt über Supabase ohne eigene API-Routen, Browser lädt | Wie PROJ-3 und PROJ-4: die Datenbank schützt die Daten | 2026-11-13 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Backend nötig?
+Ja, und zwar zuerst. Der laufende Timer muss **auf dem Server** liegen, damit er das Schliessen des Browsers überlebt und auf jedem Gerät sichtbar ist. Dazu kommt **eine neue Tabelle «Laufender Timer»** (höchstens eine Zeile pro Nutzer) und **drei unteilbare Funktionen in der Datenbank** (Start/Wechsel, Stopp, Verwerfen). Eigene Schnittstellen (API-Routen) sind nicht nötig: Die Seiten sprechen direkt mit Supabase, und die Datenbank sichert alles ab (wie bei PROJ-3 und PROJ-4).
+
+**Bau-Reihenfolge (mit dem Nutzer vereinbart):** zuerst `/backend` (Tabelle, Funktionen, Prüfung per SQL), dann `/frontend` direkt gegen die echten Funktionen. Es gibt keine Platzhalter-Phase im Browser: Der Stopp legt echte Zeiteinträge an, und die lassen sich vor PROJ-5 nicht löschen.
+
+### A) Seitenstruktur
+```
+App-Bereich (geschützt, mit Navigation)
++-- Rahmen (für alle Seiten): Timer-Anbindung (lädt und hält den Zustand des laufenden Timers)
+|   +-- Timer-Leiste (schmal; nur wenn ein Timer läuft und nicht auf der Startseite)
+|       Kürzel · Projekt · laufende Zeit · «Stopp»; Tipp führt zur Startseite
+|       Am Handy über der Tab-Leiste, am Laptop oben im Inhaltsbereich
++-- Startseite «/»
+|   +-- Karte «Timer läuft» (nur wenn ein Timer läuft)
+|   |   Kürzel, Kunde, Projekt, Startzeit, laufende Zeit h:mm:ss, Hinweis «Läuft schon sehr lange»
+|   |   Textfeld «Beschreibung (optional)», Knöpfe «Stopp» und «Verwerfen»
+|   +-- Liste «Projekt starten» (alle aktiven Projekte, nach Kunde gruppiert)
+|   |   Zeile: Projektname, Knopf «Start» (beim laufenden Projekt: Markierung «läuft»)
+|   |   Hinweis «Lege zuerst einen Kunden an», wenn es keine aktiven Projekte gibt
+|   +-- Zeit erfassen und Abschnitt «Heute» (PROJ-4, unverändert, lädt nach einem Stopp neu)
++-- Kundenseite «/kunden/[Kunde]»
+|   +-- Projektzeile: neu der Knopf «Start» neben «Bearbeiten» und «Archivieren» (nur aktive Projekte)
++-- Rückfrage «Timer verwerfen?» (Dialog, nennt die gemessene Zeit)
+```
+
+### B) Bausteine
+- **Vorhandene shadcn-Bausteine:** Card, Button, Alert, Alert Dialog (Rückfrage), Textarea, Badge, Skeleton, Sonner (Meldungen), Separator. Nichts Neues zu installieren.
+- **Neue eigene Zusammensetzungen:** Timer-Anbindung (Zustand und Aktionen für alle Seiten), Timer-Karte, Timer-Leiste, Projektliste «Projekt starten», Start-Knopf (wiederverwendet auf Startseite und Kundenseite), Rückfrage «Verwerfen».
+- **Wiederverwendet:** Auswahl der aktiven Kunden und Projekte aus PROJ-4 (dieselbe Abfrage), Lade- und Fehlerzustände, Rückfrage-Dialog mit Fokusrückgabe aus PROJ-3, Formatierung von Dauer und Uhrzeiten aus PROJ-4.
+- **Anzeige der Zeit:** Die Oberfläche berechnet die laufende Zeit aus der Startzeit und der **Serveruhr** (beim Laden wird die aktuelle Serverzeit mitgeliefert, die Anzeige rechnet damit). Falsche Geräteuhren verfälschen sie nicht. Beim Zurückkehren in den Tab oder nach dem Aufwachen des Geräts lädt die Anbindung den Zustand neu, die Zeit stimmt sofort wieder.
+- **Tab-Titel:** zeigt Zeit und Kürzel, aktualisiert **jede Minute** (nicht jede Sekunde: weniger Ablenkung und Akku). Die Karte zeigt Sekunden.
+- **Vorlesen:** Start, Stopp, Wechsel und Fehler werden angesagt, die laufende Zeit nicht sekündlich (kein Dauergeplapper für Screenreader).
+
+### C) Datenmodell (in Alltagssprache)
+```
+Der laufende Timer hat:
+- Eindeutige ID
+- Besitzer (der angemeldete Nutzer, automatisch gesetzt, unveränderlich), höchstens ein Timer pro Besitzer
+- Projekt (ein aktives Projekt des Besitzers)
+- Startzeit (von der Serveruhr gesetzt, mit Sekunden)
+- Beschreibung (optional, höchstens 1000 Zeichen, ohne Leerzeichen am Rand)
+- Angelegt am, zuletzt geändert am
+
+Gespeichert in: Supabase (PostgreSQL), geräteübergreifend.
+```
+Die **Zeiteinträge** (PROJ-4) bleiben unverändert in ihrer Tabelle. Ein Timer ist nur der «noch offene» Eintrag: Beim Stopp entstehen aus ihm ein oder mehrere normale Zeiteinträge, und der Timer verschwindet. Es gibt kein zusätzliches Merkmal an den Einträgen («vom Timer erzeugt»); an der Uhrzeit-Angabe sieht man, dass sie von–bis haben.
+
+### D) Regeln in der Datenbank (das Sicherheitsnetz)
+- **Nur eigene Daten:** Der Nutzer darf nur seinen eigenen Timer lesen. Ohne Anmeldung (nur öffentlicher Schlüssel) ist nichts lesbar oder schreibbar.
+- **Ein Timer pro Nutzer:** Eine zweite Zeile ist unmöglich, auch an der Oberfläche vorbei (Eindeutigkeit in der Tabelle).
+- **Anlegen, Wechseln, Stoppen, Verwerfen nur über die drei Funktionen.** Der Browser darf **keine Zeilen anlegen oder löschen**, und er darf an der Zeile nur die **Beschreibung ändern**, nicht Projekt, Startzeit oder Besitzer. Damit kann niemand eine falsche Startzeit setzen oder fremde Projekte einschleusen.
+- **Start nur auf aktive Projekte** des Nutzers (aktives Projekt und aktiver Kunde, nur eigene). Die Startzeit ist immer die aktuelle Serverzeit, nie in der Zukunft.
+- **Beschreibung:** höchstens 1000 Zeichen, ohne Leerzeichen am Rand, leer wird zu «keine».
+- **Ausnahme für den Stopp:** Ein Timer, der bei einem inzwischen **archivierten** Projekt weiterlief, darf beim Stopp trotzdem seinen Eintrag speichern (Spec PROJ-3). Die Regel «nur aktive Ziele beim Anlegen» aus PROJ-4 gilt weiter für alle anderen Wege. Die Ausnahme gilt nur innerhalb der Stopp-Funktion und ist nicht von aussen auslösbar.
+- **Einträge aus dem Stopp** erfüllen dieselben Regeln wie bei PROJ-4 (Besitzer, Dauer, Datum, Beschreibung). Die Datenbank-Regel für Endzeiten wird um **24:00** erweitert (Ende eines Tages), damit ein Eintrag bis Mitternacht möglich ist. Die Eingabe im Formular bleibt bis 23:59.
+- **Kein Löschen von Einträgen:** weiterhin kein Recht dazu. Das Verwerfen löscht nur die Timer-Zeile, nie einen Zeiteintrag.
+
+### E) Ablauf in Worten
+1. **Laden:** Beim Öffnen einer Seite und beim Zurückkehren in den Tab fragt die Anbindung den Timer samt Serverzeit ab. Gibt es einen Timer, erscheinen Karte bzw. Leiste. Mit der Anzeige läuft eine eigene Uhr im Browser (jede Sekunde in der Karte, jede Minute im Tab-Titel).
+2. **Start:** Ein Klick auf «Start» ruft die Start-Funktion auf. Diese prüft das Projekt, **beendet einen laufenden Timer wie beim Stopp** (Eintrag speichern oder bei unter einer Minute verwerfen) und legt den neuen Timer an, alles in **einem unteilbaren Schritt**. Die Antwort enthält, was gespeichert wurde, für die Meldung («MUS · Allgemein: 0:47 gespeichert. Timer für ABC gestartet.»).
+3. **Beschreibung:** Die Oberfläche speichert den Text kurz nach der letzten Eingabe (etwa 1,5 Sekunden Pause) und beim Verlassen des Feldes. Beim Stopp wird der aktuelle Text **mit der Stopp-Anfrage geschickt**, damit nichts durch ein Timing verloren geht.
+4. **Stopp:** Die Stopp-Funktion schneidet Start und Ende auf die volle Minute ab. Ist beides gleich, entsteht kein Eintrag («Unter einer Minute»). Sonst teilt sie die Zeit **nach Kalendertagen der Zürcher Uhr** auf und legt pro Tag einen Eintrag an (Dauer = Ende minus Start, verrechenbar = Dauer, gleiche Beschreibung). Danach verschwindet der Timer. Alles in einem Schritt: entweder alle Einträge und kein Timer mehr, oder nichts.
+5. **Verwerfen:** Nach der Rückfrage löscht die Verwerfen-Funktion nur den Timer.
+6. **Zwei Geräte:** Weil jeder Schritt unteilbar ist und es höchstens einen Timer gibt, entsteht bei gleichzeitigem Stopp nur ein Eintrag; die zweite Anfrage findet keinen Timer mehr und meldet «Timer wurde beendet». Ein Start auf einem anderen Gerät wechselt den Timer wie oben.
+7. **Aktualisierung der Anzeige:** Nach Start, Stopp, Wechsel und Verwerfen lädt die Anbindung den Timer neu, und die Liste «Heute» lädt ihre Einträge neu. Änderungen von einem anderen Gerät erscheinen beim Zurückkehren in den Tab, beim nächsten Seitenwechsel und bei einer eigenen Aktion (kein Live-Abgleich im MVP).
+8. **Fehler:** Archiviertes oder fremdes Projekt, Netzwerk, abgelaufene Sitzung und Dienstfehler werden in verständliche Meldungen übersetzt; bei jedem Fehler bleibt der Zustand unverändert (der Timer läuft weiter, die Beschreibung bleibt erhalten).
+
+### F) Tech-Entscheidungen (für Nicht-Techniker begründet)
+- **Timer auf dem Server, nicht im Browser:** Er muss das Schliessen des Browsers überleben und auf dem Handy sichtbar sein. Nur die Datenbank sieht für alle Geräte dasselbe.
+- **Start, Stopp und Verwerfen als Funktionen in der Datenbank:** Stopp und Wechsel ändern mehrere Dinge auf einmal (Einträge anlegen, Timer entfernen, neuen Timer anlegen). Als ein Schritt in der Datenbank gibt es keinen halben Zustand (zum Beispiel zwei laufende Timer oder einen Timer, der gespeichert wurde, aber noch läuft), auch bei Verbindungsabbruch.
+- **Der Browser darf den Timer nicht selbst anlegen oder löschen:** Sonst könnte er eine falsche Startzeit setzen. Nur die Funktionen setzen die Zeit, und zwar mit der Serveruhr. Die Funktionen prüfen innen selbst, dass sie nur den Timer des angemeldeten Nutzers anfassen.
+- **Serveruhr statt Geräteuhr:** Start und Ende stammen von der Datenbank. Eine falsche Geräteuhr ändert nichts an den Einträgen.
+- **Aufteilung nach Tagen im Stopp, kein nächtlicher Dienst:** Der Timer wird erst beim Stopp ausgewertet. Es braucht keinen Hintergrunddienst um Mitternacht (auf dem kostenlosen Plan aufwändig). Die Warnung ab 10 Stunden weist früh auf Vergessenes hin.
+- **Endzeit 24:00 zulässig (nur für Einträge bis Mitternacht):** Der erste Teil eines über Mitternacht gelaufenen Timers endet fachlich um 24:00. Ein Ende um 23:59 würde jede Nacht eine Minute verschenken.
+- **Ausnahme für archivierte Projekte nur im Stopp:** Sonst würde das Archivieren eines Projekts mit laufendem Timer den Stopp blockieren und die Zeit verlieren (Spec PROJ-3).
+- **Kein Live-Abgleich (Realtime) im MVP:** Beim Zurückkehren in den Tab und bei jeder Aktion wird neu geladen. Das genügt für einen Einzelnutzer und spart Komplexität und Verbindungen.
+- **Tab-Titel einmal pro Minute:** Die Karte zeigt Sekunden, der Titel nur Minuten. Das schont Akku und Aufmerksamkeit.
+- **Beschreibung mit Pause von etwa 1,5 Sekunden speichern und beim Stopp mitschicken:** Der Text ist auf jedem Gerät sichtbar, geht beim Neuladen nicht verloren, und der Stopp hat immer den letzten Stand.
+- **Direkt über Supabase, keine eigenen API-Routen, Browser lädt:** wie bei PROJ-3 und PROJ-4.
+
+### G) Abhängigkeiten (Pakete)
+Keine neuen. Vorhanden und genutzt: `@supabase/ssr`, `@supabase/supabase-js` (Zugriff), `sonner` (Meldungen), `lucide-react` (Symbole).
+
+### H) Risiken und Hinweise für Bau und QA
+- **Zeit-Logik gehört in Datenbanktests:** Die Aufteilung nach Tagen (Mitternacht, mehrere Tage, Sommer-/Winterzeit-Umstellung), das Abschneiden auf Minuten und der Wechsel sollten per SQL mit künstlich in die Vergangenheit gelegter Startzeit geprüft werden, nicht mit Warten. Im E2E braucht ein echter Stopp mindestens eine volle Minute Laufzeit (ein bis zwei Tests dürfen langsam sein).
+- **Sommer-/Winterzeit:** Ein Timer über die Umstellung (Oktober, März) liefert pro Tag Einträge nach Uhrzeit; die Dauer ergibt sich aus der Differenz der Uhrzeiten auf der Uhr (wie PROJ-4). In der Umstellungsnacht kann die Summe um eine Stunde vom echten Zeitablauf abweichen. Das ist im MVP bewusst so.
+- **Gleichzeitigkeit:** Stopp und Start von zwei Geräten gleichzeitig prüfen (Datenbank-Test mit zwei Verbindungen oder nacheinander mit demselben Timer).
+- **Tabulatorwechsel und Schlaf:** Die Anzeige darf nach dem Aufwachen nicht den alten Stand zeigen (Zustand beim Zurückkehren neu laden).
+- **Testdaten:** E2E-Tests erzeugen Zeiteinträge auf Testkunden «T-…», die sich vor PROJ-5 nicht löschen lassen. Das Aufräumen übernimmt der Nutzer im SQL-Editor oder per Berechtigungsregel.
+- **Rechte der Funktionen:** Die drei Funktionen laufen mit erweiterten Rechten (sie legen Einträge an und löschen die Timer-Zeile). Sie müssen innen den Besitzer prüfen und dürfen für `anon` nicht aufrufbar sein. Das gehört in die Datenbanktests (fremder Nutzer, ohne Anmeldung).
+- **Mobile:** Die Leiste über der Tab-Leiste darf Inhalte und Bestätigungsmeldungen nicht verdecken (Sonner-Position), 44-px-Ziele, 320 px prüfen.
+- **Änderung an PROJ-4:** Die Anpassung der Datenbank-Regeln (Endzeit 24:00, Ausnahme im Stopp) ändert Regeln eines bereits veröffentlichten Features. `/backend` muss die PROJ-4-Tests und die Zugriffsregeln erneut prüfen; Änderungen an Zugriffsregeln brauchen die Freigabe des Nutzers.
 
 ## QA Test Results
 _To be added by /qa_
