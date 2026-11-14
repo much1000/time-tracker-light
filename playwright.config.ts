@@ -39,6 +39,23 @@ export default defineConfig({
       dependencies: ['setup'],
       testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
     },
+    // Optional (PW_FIREFOX=1): dieselben Tests in Firefox, z. B. nur den Timer: --grep Timer
+    ...(process.env.PW_FIREFOX
+      ? [
+          {
+            name: 'firefox',
+            use: { ...devices['Desktop Firefox'], storageState: STORAGE_STATE },
+            dependencies: ['setup'],
+            testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
+          },
+          {
+            name: 'firefox-timer',
+            testMatch: /PROJ-6-timer\.spec\.ts/,
+            use: { ...devices['Desktop Firefox'], storageState: STORAGE_STATE },
+            dependencies: ['setup'],
+          },
+        ]
+      : []),
     // Abmelden beendet derzeit alle Sitzungen des Kontos und läuft deshalb zuletzt,
     // nachdem alle anderen Tests mit der gespeicherten Anmeldung fertig sind.
     {

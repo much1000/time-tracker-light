@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import { hasTestUser, SKIP_REASON } from './helpers/env'
+import { findLeaks } from './helpers/leaks'
 
 // PROJ-6: Timer gegen die echte Datenbank, über REST mit der Sitzung des Testkontos und über die Oberfläche.
 // Läuft als eigenes Projekt «timer» nach allen anderen Tests (der Timer ist pro Konto nur einmal da).
@@ -370,6 +371,189 @@ test.describe('Oberfläche', () => {
     const rows = await (await request.get(`${base}/rest/v1/running_timers?select=id`, { headers })).json()
     expect(rows).toHaveLength(1)
     await rpc(request, 'discard_timer')
+  })
+})
+
+// ---------- QA: Randfälle, Gleichzeitigkeit, Fehlerzustände, Sicherheit ----------
+
+test.describe('QA', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('Gleichzeitigkeit: zehn Starts auf zwei Projekte gleichzeitig ergeben genau einen Timer, keine Fehler', async ({ request }) => {
+    await rpc(request, 'discard_timer')
+    const results = await Promise.all(
+      Array.from({ length: 10 }, (_, i) => rpc(request, 'start_timer', { p_project_id: i % 2 === 0 ? projectA : projectB }))
+    )
+    for (const response of results) expect(response.status()).toBe(200)
+    // Nach vielen gleichzeitigen Anfragen setzt die Verbindung manchmal zurück (Netz, nicht Produkt): wiederholen
+    let rows: unknown[] = []
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        rows = await (await request.get(`${base}/rest/v1/running_timers?select=id,project_id`, { headers })).json()
+        break
+      } catch {
+        await new Promise((resolveWait) => setTimeout(resolveWait, 1000))
+      }
+    }
+    expect(rows).toHaveLength(1)
+    await rpc(request, 'discard_timer')
+  })
+
+  test('Falsche Geräteuhr (2020): Die laufende Zeit stimmt trotzdem (Serveruhr)', async ({ page, request }) => {
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    await page.clock.setFixedTime(new Date('2020-01-01T12:00:00Z'))
+    await page.goto('/')
+    await expect(timerRegion(page).getByRole('timer')).toHaveText(/^0:00:\d\d$/)
+    await rpc(request, 'discard_timer')
+  })
+
+  test('Anderes Gerät beendet den Timer: Rückkehr in den Tab gleicht die Anzeige ab', async ({ page, request }) => {
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    await page.goto('/')
+    await expect(timerRegion(page)).toBeVisible()
+    await rpc(request, 'discard_timer') // «anderes Gerät»
+    await page.waitForTimeout(2300)
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(timerRegion(page)).toHaveCount(0)
+    await expect(page).toHaveTitle(/^Heute|Time Tracker Light/)
+    await expect(page).not.toHaveTitle(/^\d+:\d{2} · /)
+  })
+
+  test('Anderes Gerät beendet den Timer: «Stopp» meldet «schon beendet», die Karte verschwindet', async ({ page, request }) => {
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    await page.goto('/')
+    await expect(timerRegion(page)).toBeVisible()
+    await rpc(request, 'discard_timer')
+    await page.getByRole('button', { name: 'Stopp' }).click()
+    await expect(page.getByText('Der Timer wurde schon beendet.')).toBeVisible()
+    await expect(timerRegion(page)).toHaveCount(0)
+  })
+
+  test('Keine Verbindung beim Abgleich: Hinweis, die Karte bleibt, nach der Rückkehr der Verbindung verschwindet er', async ({ page, request }) => {
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    await page.goto('/')
+    await expect(timerRegion(page)).toBeVisible()
+    await page.route('**/rest/v1/rpc/get_timer', (route) => route.abort('failed'))
+    await page.waitForTimeout(2300)
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(page.getByText(/Keine Verbindung/).first()).toBeVisible({ timeout: 20000 })
+    await expect(timerRegion(page)).toBeVisible()
+    await page.unroute('**/rest/v1/rpc/get_timer')
+    await page.waitForTimeout(2300)
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(page.getByText(/Keine Verbindung/)).toHaveCount(0)
+    await rpc(request, 'discard_timer')
+  })
+
+  test('Archivierter Kunde: kein Start-Knopf auf der Kundenseite und in der Liste', async ({ page, request }) => {
+    const code = `T-TA${run}`
+    const created = await rpc(request, 'create_customer', { p_code: code, p_name: `Archiv ${run}` })
+    const archivedId = (await created.json()).id
+    await page.goto(`/kunden/${archivedId}`)
+    await expect(page.getByRole('button', { name: new RegExp(`Timer starten: ${code}`) })).toBeVisible()
+    await rpc(request, 'archive_customer', { p_id: archivedId })
+    await page.reload()
+    await expect(page.getByText('Dieser Kunde ist archiviert')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Timer starten/ })).toHaveCount(0)
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 3, name: 'Projekt starten' })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(`Timer starten: ${code}`) })).toHaveCount(0)
+  })
+
+  test('Reduzierte Bewegung: keine laufenden Animationen an Karte und Leiste', async ({ page, request }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    for (const path of ['/', '/kunden']) {
+      await page.goto(path)
+      await expect(timerRegion(page).first()).toBeVisible()
+      const animated = await page.evaluate(() =>
+        [...document.querySelectorAll('[role="region"][aria-label="Laufender Timer"] *')]
+          .filter((el) => {
+            const s = getComputedStyle(el)
+            return s.animationName !== 'none' && s.animationPlayState === 'running'
+          })
+          .map((el) => el.tagName)
+      )
+      expect(animated, path).toEqual([])
+    }
+    await rpc(request, 'discard_timer')
+  })
+
+  test('Tastatur allein: Start-Knopf per Enter, dann per Tab zu «Stopp» und beenden (unter einer Minute: nicht gespeichert)', async ({ page, request }) => {
+    await rpc(request, 'discard_timer')
+    await page.goto('/')
+    const start = page.getByRole('button', { name: START_ALLGEMEIN() })
+    await start.focus()
+    await page.keyboard.press('Enter')
+    await expect(timerRegion(page)).toBeVisible()
+    let reached = false
+    for (let i = 0; i < 40 && !reached; i++) {
+      await page.keyboard.press('Shift+Tab')
+      reached = await page.evaluate(() => document.activeElement?.textContent?.trim() === 'Stopp')
+    }
+    expect(reached).toBe(true)
+    await page.keyboard.press('Enter')
+    await expect(timerRegion(page)).toHaveCount(0)
+    await expect(page.getByText(/Unter einer Minute, nicht gespeichert|gespeichert/).first()).toBeVisible()
+  })
+
+  test('Sicherheit: keine Geheimnisse in Antworten der Startseite, keine Konsolenfehler bei laufendem Timer', async ({ page, request }) => {
+    const errors: string[] = []
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+    page.on('pageerror', (e) => errors.push(e.message))
+    const bodies: string[] = []
+    page.on('response', async (r) => {
+      if (/json|html|javascript/.test(r.headers()['content-type'] ?? '')) {
+        try {
+          bodies.push(await r.text())
+        } catch {
+          // nicht lesbar
+        }
+      }
+    })
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    await page.goto('/')
+    await expect(timerRegion(page)).toBeVisible()
+    await page.goto('/kunden')
+    await expect(timerRegion(page).first()).toBeVisible()
+    expect(bodies.flatMap(findLeaks)).toEqual([])
+    expect(errors).toEqual([])
+    await rpc(request, 'discard_timer')
+  })
+
+  test('Echter Wettlauf: zwei Geräte stoppen gleichzeitig nach über einer Minute: genau ein Erfolg, ein Eintrag; HTML in der Beschreibung bleibt Text', async ({ page, request }) => {
+    test.setTimeout(150000)
+    const evil = `<img src=x onerror=alert(1)> '; drop table time_entries;-- ${run}`
+    await rpc(request, 'discard_timer')
+    await rpc(request, 'start_timer', { p_project_id: projectA })
+    const patch = await request.patch(`${base}/rest/v1/running_timers?owner_id=not.is.null`, { headers, data: { description: evil } })
+    expect(patch.status()).toBe(200)
+    await new Promise((resolveWait) => setTimeout(resolveWait, 62000))
+
+    const [one, two] = await Promise.all([rpc(request, 'stop_timer', {}), rpc(request, 'stop_timer', {})])
+    const statuses = [one.status(), two.status()].sort()
+    expect(statuses[0]).toBe(200)
+    expect(statuses[1]).toBeGreaterThanOrEqual(400)
+    const failed = one.status() === 200 ? two : one
+    expect(await failed.text()).toContain('no_timer')
+
+    // Einträge über ihre IDs lesen (Abfragen mit SQL-Zeichen in der Adresse blockt der Schutz vor dem Dienst)
+    const winner = (one.status() === 200 ? one : two)
+    const ids = (await winner.json()).finished.entries.map((e: { id: string }) => e.id).join(',')
+    const entries = await (await request.get(`${base}/rest/v1/time_entries?select=id,description&id=in.(${ids})`, { headers })).json()
+    expect(entries.length).toBeGreaterThanOrEqual(1) // bei Lauf um Mitternacht in Zürich zwei (ein Eintrag pro Tag)
+    expect(entries.length).toBeLessThanOrEqual(2)
+    for (const entry of entries) expect(entry.description).toBe(evil)
+
+    const dialogs: string[] = []
+    page.on('dialog', (d) => {
+      dialogs.push(d.message())
+      void d.dismiss()
+    })
+    await page.goto('/')
+    await expect(page.getByText(/drop table time_entries/).first()).toBeVisible()
+    expect(await page.locator('img[src="x"]').count()).toBe(0)
+    expect(dialogs).toEqual([])
   })
 })
 

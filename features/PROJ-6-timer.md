@@ -1,6 +1,6 @@
 # PROJ-6: Timer
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -299,7 +299,47 @@ Keine neuen. Vorhanden und genutzt: `@supabase/ssr`, `@supabase/supabase-js` (Zu
 - **Testdaten:** Die Tests legen Testkunden `T-…` und Zeiteinträge an (kein Löschen). 15 übrig gebliebene aktive Testkunden wurden über die Oberfläche archiviert. Die Zeiteinträge auf `T-…`-Kunden müssen per SQL gelöscht werden.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-11-14 · **Umgebung:** Produktionsbuild (`next start`), Chrome, echte Supabase-Datenbank, Testkonto · **Ergebnis:** Alle Akzeptanzkriterien erfüllt, 0 Critical/High/Medium, 1 Low-Fehler (QA-1) und 2 Beobachtungen.
+
+### Automatische Tests
+- **Vitest:** 276 von 277 grün plus 1 erwarteter Fehlschlag (`it.fails` für QA-1, siehe unten).
+- **Playwright (Chrome):** Timer-Projekt `timer` mit 37 Tests grün (12 Datenbank, 15 Oberfläche, 10 QA); alle anderen Projekte (setup, chromium, logout) mit 153 Tests grün aus dem letzten Gesamtlauf (190 Tests). Neu in der QA: 10 Tests in `tests/PROJ-6-timer.spec.ts` (Block «QA») und 4 Komponententests der Liste «Projekt starten» (`project-start-list.test.tsx`).
+- **Nicht geprüft:** Firefox und Safari. Der Firefox-Download von Playwright bricht auf diesem Rechner beim Entpacken ab (nur ein leeres Verzeichnis); die vorbereitete Konfiguration `PW_FIREFOX=1` (Projekte `firefox`, `firefox-timer`) steht bereit. Außerdem nicht geprüft: echtes Handy (Bildschirmtastatur, Sperrbildschirm, Hintergrund-Tab), Screenreader von Hand.
+- **Hinweis zur Stabilität:** Zwei Testläufe scheiterten an kurzzeitigen Verbindungsproblemen meines Rechners (`ENOTFOUND`, `ECONNRESET`, ein Lauf mit 24 Minuten Dauer). Die Wiederholung lief jeweils grün (37 von 37 in 3,1 Minuten). Außerdem blockt der Schutz vor Supabase Abfragen mit SQL-Zeichen in der Adresse (HTML-Antwort statt JSON); der Test liest Einträge deshalb über ihre IDs.
+
+### Akzeptanzkriterien
+| Bereich | Ergebnis | Nachweis |
+|---|---|---|
+| Start-Knöpfe (5) | bestanden | E2E und Komponententest: Liste «Projekt starten» nach Kunde gruppiert, Start auf der Kundenseite bei aktiven Projekten und kein Knopf bei archivierten Kunden, Hinweis ohne Kunden (Komponententest), sofortiger Start mit Meldung, Doppelklick ein Timer, zehn gleichzeitige Starts ergeben einen Timer |
+| Laufender Timer (9) | bestanden | E2E: Karte mit allen Angaben und laufenden Sekunden, Leiste auf anderen Seiten, Tab-Titel mit Zeit und Kürzel, richtige Zeit bei falscher Geräteuhr (2020), Neuladen und zweites Gerät (Zeit, Beschreibung), Markierung «Läuft», Hinweis ab 10 Stunden (Komponententest), Beschreibung gespeichert nach Pause und beim Verlassen |
+| Stoppen (7) | bestanden | E2E: echter Stopp nach über einer Minute mit Uhrzeiten und Beschreibung, Eintrag unter «Heute» ohne Neuladen, unter einer Minute «nicht gespeichert», Netzwerkfehler (Timer läuft weiter, Text bleibt), zwei Geräte gleichzeitig: ein Erfolg, die zweite Anfrage «kein Timer». Aufteilung über Mitternacht, mehrere Tage, Sommer- und Winterzeit per SQL geprüft (siehe Backend) |
+| Wechseln und Verwerfen (4) | bestanden | E2E: Meldung nennt beides, unter einer Minute ohne Eintrag, Verwerfen mit Rückfrage (Abbrechen lässt laufen), Fehler lässt den Zustand unverändert |
+| Archivieren während der Timer läuft (2) | bestanden | E2E: Kunde wird archiviert, Timer läuft weiter, Stopp speichert; kein Start bei archivierten Einträgen (Oberfläche und Datenbank) |
+| Fehler und Sonderfälle (3) | bestanden | Ladefehler (Komponententest), abgelaufene Sitzung (Timer läuft serverseitig weiter), anderes Gerät beendet den Timer (Abgleich beim Zurückkehren in den Tab und bei «Stopp») |
+| Bedienung, Darstellung, Zugänglichkeit (5) | bestanden | 320/375/768/1440 px ohne Überlauf, 44-px-Ziele, Leiste verdeckt Tab-Leiste und Seitenende nicht, lange Namen bei 320 px, Tastatur allein (Start per Enter, per Tab zu «Stopp», Fokus kehrt nach der Rückfrage zurück), axe in Hell und Dunkel (Startseite, Rückfrage, Leiste) ohne Verstösse, keine laufenden Animationen bei «reduzierte Bewegung» |
+| Datenschutz und Sicherheit (5) | bestanden | Siehe Sicherheitsprüfung |
+
+### Randfälle
+Bestanden: Doppelklick, Start auf zwei Geräten gleichzeitig (genau ein Timer), Stopp auf einem Gerät während das andere anzeigt (Abgleich), falsche Geräteuhr, Beschreibung über 1000 Zeichen (Stopp gesperrt, Hinweis), Stopp nach Archivieren, abgelaufene Sitzung, Supabase nicht erreichbar beim Abgleich (Karte bleibt, Hinweis «Keine Verbindung», verschwindet wieder), Sommer-/Winterzeit und Mitternacht (Datenbank), Beschreibung nur Leerzeichen. Eingeschränkt: Wird die Seite **ohne Verbindung neu geladen**, ist ein laufender Timer nicht sichtbar, weil sein Zustand unbekannt ist (siehe Beobachtung 1).
+
+### Sicherheitsprüfung (Red Team)
+- **Fremdzugriff und Rechte:** `anon` kommt an keine der vier Funktionen und nicht an die Tabelle; der Browser darf Timer weder anlegen noch löschen und weder Projekt, Startzeit noch Besitzer ändern; die interne Hilfsfunktion ist von aussen nicht aufrufbar; ein zweiter Nutzer sieht nichts und kann nicht stoppen, verwerfen oder auf ein fremdes Projekt starten (SQL im Backend-Schritt, E2E über REST).
+- **Wettlauf:** Zehn gleichzeitige Starts ergeben einen Timer, zwei gleichzeitige Stopps genau einen Eintrag (je Tag) und einen Fehler «kein Timer» (Sperre pro Nutzer in der Datenbank).
+- **Eingaben:** `<img onerror>` und SQL-Zeichen in der Beschreibung werden im laufenden Timer und im gespeicherten Eintrag als Text behandelt, kein Skript läuft, kein Dialog.
+- **Geheimnisse und Konsole:** Keine Schlüssel mit Rolle ausser `anon` und keine Tokens in Antworten von Startseite und Kundenliste, keine Konsolenfehler bei laufendem Timer.
+- **Offen (ausserhalb PROJ-6):** Supabase «Leaked Password Protection» ist ausgeschaltet.
+
+### Fehler und Beobachtungen
+- **QA-1 (Low): Der Überschneidungs-Hinweis im PROJ-4-Formular übersieht Einträge, die um 24:00 enden.** Schritte: Timer über Mitternacht stoppen (Eintrag 22:00–24:00 am ersten Tag) oder entsprechenden Eintrag haben, dann im Formular «Zeit erfassen» für diesen Tag Von–bis 23:00–23:30 eingeben. Erwartet: Hinweis «Überschneidung mit …». Ist: kein Hinweis, weil `parseTime` die Uhrzeit «24:00» nicht kennt (Eintrag wird beim Vergleich ignoriert). Das Speichern selbst funktioniert, nur der Hinweis fehlt. Ursache: Die Endzeit 24:00 ist erst mit PROJ-6 möglich geworden. Abgesichert durch `it.fails` in `src/lib/time-entries/time-entries.test.ts`; Behebung: 24:00 im Vergleich (nicht im Formularfeld) zulassen.
+- **Beobachtung 1:** Ein Neuladen ohne Verbindung zeigt keinen laufenden Timer (die Anzeige weiss nichts davon). Gefahr gering: Ein Start bei einem anderen Projekt speichert den laufenden Timer ohnehin, nichts geht verloren. Kein Eingriff nötig.
+- **Beobachtung 2:** Die Liste «Projekt starten» ist immer sichtbar; bei vielen Kunden liegt «Heute» weit unten. Entscheidung offen, ob sie einklappbar werden soll (nicht Teil der Spec).
+
+### Testdaten
+Die Tests legen Testkunden `T-…` und Zeiteinträge an (kein Löschen). Übrig gebliebene aktive Testkunden wurden über die Oberfläche archiviert. Die Zeiteinträge auf `T-…`-Kunden bleiben in der Tabelle und müssen per SQL gelöscht werden (Skript in der Spec PROJ-4, Abschnitt QA).
+
+### Production-Ready
+**JA.** Keine Critical-, High- oder Medium-Fehler. Empfehlung: QA-1 vor dem Deploy beheben (kleine Änderung), Beobachtung 1 so lassen, bei Beobachtung 2 entscheiden.
 
 ## Deployment
 _To be added by /deploy_
