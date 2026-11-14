@@ -1,6 +1,6 @@
 # PROJ-6: Timer
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -352,4 +352,10 @@ Entscheidungen des Nutzers: QA-1 vor dem Deploy beheben, Beobachtung 1 so lassen
 **JA.** Keine offenen Fehler. Status: **Approved**.
 
 ## Deployment
-_To be added by /deploy_
+- **Produktions-URL:** https://time-tracker-light.vercel.app (Startseite «/» mit Timer, Leiste auf allen Seiten, Start-Knöpfe auf der Kundenseite)
+- **Deployed:** 2026-11-14 (Push auf `main`, Vercel-Auto-Deploy), Tag `v1.5.0-PROJ-6`
+- **Datenbank:** Die Migration `supabase/migrations/20261114000000_running_timers.sql` (Tabelle `running_timers`, Funktionen `get_timer`, `start_timer`, `stop_timer`, `discard_timer`, Anpassung des Triggers `time_entries_before_insert`) war vor dem Push im Supabase-SQL-Editor angewendet (es gibt nur diese eine Datenbank für Entwicklung und Produktion). Vor dem Deploy per Abfrage bestätigt: 4 Tabellen, 9 Funktionen, geänderter Trigger.
+- **Neue Umgebungsvariablen:** keine.
+- **Prüfung in Produktion:** Anmeldung, Startseite mit Abschnitt «Timer» und Kundenliste laden ohne Konsolenfehler und ohne fehlgeschlagene Datenbankanfragen. Rauchtest mit einem Testkunden in der Oberfläche der Produktion: Timer über «Start» gestartet, Leiste und Tab-Titel («0:00 · T-… · Kunden · Time Tracker Light») sichtbar, per «Verwerfen» (mit Rückfrage) beendet, Testkunde archiviert. Die langsamen schreibenden Tests (Stopp nach über einer Minute) laufen auf derselben Datenbank und wurden in Produktion nicht wiederholt.
+- **Testdaten:** Vor dem Deploy aufgeräumt (`supabase/tests/cleanup-test-data.sql`): 0 Zeiteinträge, 0 laufende Timer, alle Testkunden `T-…` archiviert (sie bleiben im Archiv, Kunden und Projekte lassen sich nicht löschen). Der Rauchtest hat einen weiteren archivierten Testkunden hinterlassen.
+- **Nicht geprüft:** Firefox und Safari (Playwright-Download von Firefox bricht auf dem Entwicklungsrechner ab), echtes Handy, Screenreader von Hand. Fehlerverfolgung (Sentry) und Lighthouse sind weiterhin nicht eingerichtet.
