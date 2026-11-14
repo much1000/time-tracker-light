@@ -50,13 +50,24 @@ function renderList() {
 
 beforeEach(() => {
   listTargets = vi.fn(async () => targets)
+  // Einfacher Speicher statt jsdom-localStorage (in dieser Umgebung nicht verfügbar)
+  const store = new Map<string, string>()
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+      clear: () => store.clear(),
+    },
+  })
 })
 
 describe('ProjectStartList', () => {
   it('zeigt alle aktiven Projekte nach Kunde gruppiert, je mit Start-Knopf', async () => {
     renderList()
 
-    expect(await screen.findByRole('heading', { level: 3, name: 'Projekt starten' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 3, name: 'Projekt starten (3)' })).toBeInTheDocument()
     expect(screen.getByText('Abc GmbH', { exact: false })).toBeInTheDocument()
     expect(screen.getByText('Muster AG', { exact: false })).toBeInTheDocument()
     const buttons = screen.getAllByRole('button', { name: /Timer starten/ })
@@ -92,5 +103,32 @@ describe('ProjectStartList', () => {
     expect(screen.getByRole('status', { name: 'Wird geladen' })).toBeInTheDocument()
     resolveTargets(targets)
     await waitFor(() => expect(screen.queryByRole('status', { name: 'Wird geladen' })).not.toBeInTheDocument())
+  })
+
+  it('lässt sich einklappen und aufklappen, die Wahl bleibt erhalten', async () => {
+    const first = renderList()
+    const toggle = await screen.findByRole('button', { name: /Projekt starten \(3\)/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /Timer starten/ })).not.toBeInTheDocument()
+    expect(window.localStorage.getItem('tt-start-list-open')).toBe('0')
+
+    // Neu geladen: bleibt eingeklappt
+    first.unmount()
+    renderList()
+    const again = await screen.findByRole('button', { name: /Projekt starten \(3\)/ })
+    expect(again).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: /Timer starten/ })).not.toBeInTheDocument()
+
+    fireEvent.click(again)
+    expect(screen.getAllByRole('button', { name: /Timer starten/ })).toHaveLength(3)
+    expect(window.localStorage.getItem('tt-start-list-open')).toBe('1')
+  })
+
+  it('ist ohne gemerkte Wahl aufgeklappt', async () => {
+    renderList()
+    expect(await screen.findByRole('button', { name: /Projekt starten \(3\)/ })).toHaveAttribute('aria-expanded', 'true')
   })
 })

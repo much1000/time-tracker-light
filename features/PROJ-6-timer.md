@@ -1,6 +1,6 @@
 # PROJ-6: Timer
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-13
 **Last Updated:** 2026-11-13
 
@@ -38,7 +38,7 @@
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 ### Start-Knöpfe
-- [ ] Angenommen der Nutzer ist angemeldet und es gibt aktive Projekte, wenn er die Startseite öffnet, dann sieht er unter dem Abschnitt «Timer» eine Liste «Projekt starten» mit allen aktiven Projekten, gruppiert nach Kunde (Kürzel und Name, alphabetisch nach Kürzel, «Allgemein» zuerst), jedes mit einem Knopf «Start».
+- [ ] Angenommen der Nutzer ist angemeldet und es gibt aktive Projekte, wenn er die Startseite öffnet, dann sieht er unter dem Abschnitt «Timer» eine Liste «Projekt starten» mit allen aktiven Projekten, gruppiert nach Kunde (Kürzel und Name, alphabetisch nach Kürzel, «Allgemein» zuerst), jedes mit einem Knopf «Start». Die Liste lässt sich über ihre Überschrift «Projekt starten (n)» ein- und ausklappen (per Maus und Tastatur), und die Wahl bleibt in diesem Browser erhalten; Standard ist aufgeklappt. _(Ergänzt nach QA, Beobachtung 2.)_
 - [ ] Angenommen der Nutzer öffnet die Kundenseite eines aktiven Kunden, wenn die Seite lädt, dann hat jedes aktive Projekt einen Knopf «Start» neben «Bearbeiten» und «Archivieren»; archivierte Projekte und archivierte Kunden haben keinen Start-Knopf.
 - [ ] Angenommen es gibt noch keinen aktiven Kunden oder kein aktives Projekt, wenn der Nutzer die Startseite öffnet, dann sieht er statt der Liste einen Hinweis «Lege zuerst einen Kunden an» mit Link zu `/kunden`.
 - [ ] Angenommen kein Timer läuft, wenn der Nutzer bei einem Projekt auf «Start» klickt, dann läuft der Timer sofort (ohne Rückfrage und ohne Formular), der Knopf zeigt einen Ladezustand bis die Anfrage bestätigt ist, und eine kurze Bestätigung erscheint.
@@ -338,8 +338,18 @@ Bestanden: Doppelklick, Start auf zwei Geräten gleichzeitig (genau ein Timer), 
 ### Testdaten
 Die Tests legen Testkunden `T-…` und Zeiteinträge an (kein Löschen). Übrig gebliebene aktive Testkunden wurden über die Oberfläche archiviert. Die Zeiteinträge auf `T-…`-Kunden bleiben in der Tabelle und müssen per SQL gelöscht werden (Skript in der Spec PROJ-4, Abschnitt QA).
 
-### Production-Ready
+### Production-Ready (vor Behebung)
 **JA.** Keine Critical-, High- oder Medium-Fehler. Empfehlung: QA-1 vor dem Deploy beheben (kleine Änderung), Beobachtung 1 so lassen, bei Beobachtung 2 entscheiden.
+
+### Fehlerbehebung und Re-Test (2026-11-14)
+Entscheidungen des Nutzers: QA-1 vor dem Deploy beheben, Beobachtung 1 so lassen, Beobachtung 2 umsetzen.
+- **QA-1 behoben:** Der Vergleich im Überschneidungs-Hinweis (`findOverlaps` in `src/lib/time-entries/validation.ts`) kennt jetzt «24:00» als Ende des Tages; der Hinweis zeigt die echte Zeit («(22:00–24:00)»). Der `it.fails`-Test ist ein normaler Test, dazu ein E2E-Test gegen die echte Datenbank (Eintrag 22:00–24:00 per REST, Formular 23:00–23:30 zeigt den Hinweis).
+- **Beobachtung 2 umgesetzt:** Die Liste «Projekt starten» ist einklappbar (`project-start-list.tsx`): Die Überschrift ist ein Knopf «Projekt starten (n)», die Wahl bleibt im Browser erhalten (`localStorage`, Standard aufgeklappt), das Pfeilsymbol dreht ohne Animation bei reduzierter Bewegung. Komponententests (Einklappen, Gedächtnis, Standard) und ein E2E-Test (Einklappen, Neuladen, Aufklappen per Tastatur). Akzeptanzkriterium ergänzt.
+- **Beobachtung 1:** unverändert (kein Eingriff).
+- **Re-Test:** Vitest 279 von 279, `tsc` sauber, Lint ohne Fehler, Build erfolgreich, **alle 202 E2E-Tests** (setup, chromium, timer, logout) grün. Ein Tastaturtest von PROJ-4 (Umschalter per Pfeiltasten) war in zwei Läufen unter Last empfindlich und wurde abgesichert (wartet auf den Fokus); ein weiterer Lauf wurde durch den Ruhezustand des Rechners unterbrochen (`ERR_NETWORK_IO_SUSPENDED`) und wiederholt.
+
+### Production-Ready (nach Re-Test)
+**JA.** Keine offenen Fehler. Status: **Approved**.
 
 ## Deployment
 _To be added by /deploy_

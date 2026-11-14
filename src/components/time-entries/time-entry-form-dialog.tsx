@@ -38,7 +38,6 @@ import {
 } from "@/lib/time-entries";
 import {
   formatDuration,
-  formatTime,
   parseTime,
 } from "@/lib/time-entries/duration";
 import {
@@ -473,7 +472,7 @@ function TimeEntryForm({
             {overlaps
               .map(
                 (entry) =>
-                  `${entry.customerCode} · ${entry.projectName} (${formatTime(parseTime(entry.startTime ?? "") ?? 0)}–${formatTime(parseTime(entry.endTime ?? "") ?? 0)})`,
+                  `${entry.customerCode} · ${entry.projectName} (${entry.startTime}–${entry.endTime})`,
               )
               .join(", ")}
             . Du kannst trotzdem speichern.

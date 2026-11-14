@@ -195,6 +195,29 @@ test.describe('Oberfläche', () => {
     await expect.poll(async () => card.getByRole('timer').textContent()).not.toBe(first)
   })
 
+  test('Liste «Projekt starten» lässt sich einklappen, die Wahl bleibt nach dem Neuladen, Aufklappen holt sie zurück', async ({ page, request }) => {
+    await rpc(request, 'discard_timer')
+    await page.goto('/')
+    const toggle = page.getByRole('button', { name: /^Projekt starten \(\d+\)/ })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByRole('button', { name: START_ALLGEMEIN() })).toBeVisible()
+
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('button', { name: START_ALLGEMEIN() })).toHaveCount(0)
+    // «Heute» ist jetzt nah beim Timer-Abschnitt
+    await expect(page.getByRole('heading', { level: 1, name: 'Heute' })).toBeVisible()
+
+    await page.reload()
+    await expect(page.getByRole('button', { name: /^Projekt starten \(\d+\)/ })).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('button', { name: START_ALLGEMEIN() })).toHaveCount(0)
+
+    // Per Tastatur wieder aufklappen
+    await page.getByRole('button', { name: /^Projekt starten \(\d+\)/ }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: START_ALLGEMEIN() })).toBeVisible()
+  })
+
   test('Doppelklick auf «Start» (anderes Projekt) legt nur einen Timer an', async ({ page, request }) => {
     await page.goto('/')
     await page.getByRole('button', { name: START_ZWEIT() }).dblclick()
@@ -554,6 +577,28 @@ test.describe('QA', () => {
     await expect(page.getByText(/drop table time_entries/).first()).toBeVisible()
     expect(await page.locator('img[src="x"]').count()).toBe(0)
     expect(dialogs).toEqual([])
+  })
+})
+
+test.describe('QA-1', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('Überschneidungs-Hinweis im Formular erkennt Einträge, die um 24:00 enden (Timer über Mitternacht)', async ({ page, request }) => {
+    const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Zurich' }).format(new Date())
+    const created = await request.post(`${base}/rest/v1/time_entries`, {
+      headers,
+      data: { project_id: projectA, entry_date: today, duration_minutes: 120, billable_minutes: 120, start_time: '22:00', end_time: '24:00', description: `Bis 24:00 ${run}` },
+    })
+    expect(created.status()).toBe(201)
+    await page.goto('/')
+    await expect(page.getByRole('listitem').filter({ hasText: `Bis 24:00 ${run}` })).toContainText('22:00–24:00')
+    await page.getByRole('button', { name: 'Zeit erfassen' }).first().click()
+    await expect(page.getByLabel('Datum')).toHaveValue(today)
+    await page.getByRole('tab', { name: 'Von–bis' }).click()
+    await page.getByLabel('Von', { exact: true }).fill('23:00')
+    await page.getByLabel('Bis', { exact: true }).fill('23:30')
+    await expect(page.getByText(/Überschneidung mit .*\(22:00–24:00\)/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Speichern' })).toBeEnabled()
   })
 })
 

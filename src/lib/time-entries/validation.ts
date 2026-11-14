@@ -138,7 +138,9 @@ export function findOverlaps(entries: TimeEntry[], startMinutes: number, endMinu
   return entries.filter((entry) => {
     if (entry.startTime === null || entry.endTime === null) return false
     const start = parseTime(entry.startTime)
-    const end = parseTime(entry.endTime)
+    // «24:00» (Ende des Tages, entsteht durch den Timer über Mitternacht) ist im Formular nicht eingebbar,
+    // gespeichert wird es aber: als Ende des Tages (1440 Minuten) vergleichen.
+    const end = entry.endTime === '24:00' ? 24 * 60 : parseTime(entry.endTime)
     if (start === null || end === null) return false
     return startMinutes < end && endMinutes > start
   })

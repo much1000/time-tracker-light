@@ -247,12 +247,13 @@ describe('workedMinutes, findOverlaps, sumEntries', () => {
     expect(findOverlaps(entries, 7 * 60, 12 * 60).map((e) => e.id)).toEqual(['a', 'c'])
   })
 
-  // QA-1 (PROJ-6): Der Stopp über Mitternacht erzeugt Einträge mit Ende «24:00». parseTime kennt 24:00
-  // nicht, darum wird ein solcher Eintrag beim Überschneidungs-Hinweis (PROJ-4) übersehen.
-  // Sobald behoben, `it.fails` zu `it` ändern.
-  it.fails('findet Überschneidungen auch mit Einträgen, die um 24:00 enden (BUG QA-1)', () => {
+  // QA-1 (PROJ-6, behoben): Der Stopp über Mitternacht erzeugt Einträge mit Ende «24:00». Sie zählen beim
+  // Überschneidungs-Hinweis (PROJ-4) mit.
+  it('findet Überschneidungen auch mit Einträgen, die um 24:00 enden', () => {
     const entries = [entry('a', '22:00', '24:00')]
     expect(findOverlaps(entries, 23 * 60, 23 * 60 + 30).map((e) => e.id)).toEqual(['a'])
+    // Berühren ist keine Überschneidung
+    expect(findOverlaps(entries, 21 * 60, 22 * 60)).toEqual([])
   })
 
   it('summiert gearbeitet und verrechenbar', () => {

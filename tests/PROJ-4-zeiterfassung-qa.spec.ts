@@ -186,6 +186,7 @@ test.describe('Formular: Randfälle', () => {
     await expect(page.getByLabel('Kunde')).toContainText(CODE_A)
     // Umschalter mit Pfeiltasten
     await page.getByRole('tab', { name: 'Nur Dauer' }).focus()
+    await expect(page.getByRole('tab', { name: 'Nur Dauer' })).toBeFocused()
     await page.keyboard.press('ArrowRight')
     await expect(page.getByRole('tab', { name: 'Von–bis' })).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Escape')
