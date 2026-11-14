@@ -1,6 +1,6 @@
 # PROJ-5: Zeiten prüfen und korrigieren
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-14
 **Last Updated:** 2026-11-14
 
@@ -284,7 +284,65 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod` (Formular), `@supab
 - Keine Abweichung von der Spec. Das Skript `supabase/tests/PROJ-5-delete-rules.sql` (fremder Nutzer, `anon`) ist weiterhin vom Nutzer im SQL-Editor auszuführen (siehe «Offen» oben).
 
 ## QA Test Results
-_To be added by /qa_
+**Getestet:** 2026-11-15, Chrome (installierter Chrome, Produktionsbuild), Breiten 320, 375, 768 und 1440 px, Hell- und Dunkelmodus. **Firefox und Safari nicht getestet** (Playwright-Browser lassen sich auf diesem Rechner nicht installieren).
+**Ergebnis: 2 Fehler (Medium), keine kritischen oder hohen. Status bleibt «In Review», bis über die Behebung entschieden ist.**
+
+### Zusammenfassung der Akzeptanzkriterien (39)
+| Bereich | Kriterien | Ergebnis |
+|---|---|---|
+| Navigation und Seitenschutz | 3 | 3 bestanden |
+| Liste und Monatsnavigation | 7 | 7 bestanden |
+| Filter | 4 | 4 bestanden |
+| Bearbeiten | 8 | 7 bestanden, **1 teilweise nicht** (Fokus nach dem Schliessen, BUG-2) |
+| Löschen | 5 | 4 bestanden, 1 teilweise offen (Rechte für fremde Nutzer: SQL-Skript des Nutzers) |
+| Startseite «Heute» | 2 | 2 bestanden |
+| «Zeit erfassen» auf «Zeiten» | 1 | 1 bestanden |
+| Bedienung, Darstellung, Zugänglichkeit | 4 | 3 bestanden, **1 teilweise nicht** (Fokus-Rückgabe, BUG-2) |
+| Datenschutz und Sicherheit | 5 | 3 bestanden, 2 teilweise offen (fremder Nutzer, fremdes Projekt: SQL-Skript des Nutzers) |
+| **Gesamt** | **39** | **34 bestanden, 2 mit Fehler (BUG-2), 3 teilweise offen (SQL-Skript)** |
+
+Edge Case «Sehr viele Einträge (über 1000)»: **nicht bestanden** (BUG-1). Alle übrigen Edge Cases der Spec geprüft und bestanden (Doppelklick, auf einem anderen Gerät gelöscht beim Bearbeiten und beim Löschen, Verschieben in einen anderen Monat, archiviertes Projekt und Kunde, Löschen des letzten Eintrags eines Tages, HTML und SQL-Zeichen als Text, abgelaufene Sitzung, Datenbank nicht erreichbar, Wechsel «Nur Dauer» und «Von–bis»). «Zwei Geräte bearbeiten denselben Eintrag» ist bewusst «letzte Speicherung gilt» und nicht eigens getestet.
+
+### Automatische Tests
+- **Vitest:** 332 von 332 grün, `tsc` sauber, Lint ohne Fehler (eine alte Warnung in `use-toast.ts`).
+- **Neue E2E-Datei** `tests/PROJ-5-zeiten-qa.spec.ts`: 39 Tests, alle grün (davon 2 als bekannte Fehler markiert, siehe BUG-1 und BUG-2: sie erwarten das richtige Verhalten und laufen als erwarteter Fehler, bis die Fehler behoben sind; dann werden sie rot und die Markierung `test.fail` muss entfernt werden). Die Tests legen eigene Kunden «T-ZA/ZB/ZC…» und Einträge an (feste Monate in der Vergangenheit) und räumen selbst auf: Einträge werden gelöscht, die Kunden archiviert.
+  - Abgedeckt: Navigation (Seitenleiste, Tab-Leiste bei 320 px), Seitenschutz, Monat und Adresse (ungültig, Zukunft, Zurück-Taste, Neuladen), Gruppierung, Summen, Inhalte, Filter (einzeln, kombiniert, bleibt beim Blättern und Neuladen, zurücksetzen), Leer-, Fehler- und Ladezustand, Bearbeiten (Vorbelegung, Fokus, Prüfregeln am Feld, Überschneidung ohne den eigenen Eintrag, 24:00 bleibt, Verschieben in anderen Monat, archiviertes Projekt und Kunde, gleichzeitig gelöscht, Sitzung abgelaufen, Doppelklick, Tastatur), Löschen (Rückfrage, Fokus auf «Abbrechen», Escape, genau ein Eintrag, einmalig, Fehler, gleichzeitig gelöscht, Fokus beim Nachbarn), «Heute», «Zeit erfassen» und «Bis Mitternacht» auf «Zeiten», Layout bei vier Breiten (kein Überlauf, 44 px, auch Formular und Rückfrage, sehr lange Namen), Zugänglichkeit (axe, WCAG AA, hell und dunkel: Liste, Formular, Formular mit Fehler, Rückfrage, Leerzustand), Sicherheit.
+- **Regression (Chrome, Produktionsbuild):** Haupttests 203 grün; ein Test aus PROJ-4 (Archivieren eines Kunden mit sehr langem Namen bei 320 px) fiel unter Last einmal aus und lief allein 20 von 20 grün (Flake, nicht PROJ-5); Timer 38 grün, Abmelden 3 grün. Angepasst wurde der PROJ-4-Sicherheitstest (Löschen ist seit PROJ-5 für den Besitzer erlaubt).
+- **Sichtprüfung:** Screenshots bei 375 und 1440 px (Liste, Formular, Rückfrage) geprüft: sauber, nichts läuft über. Mit `PW_SHOTS=1` entstehen die Bilder in `test-results/shots`.
+
+### Sicherheits-Audit (Red Team)
+- **Anmeldung:** `/zeiten` ohne Sitzung führt zur Anmeldung, keine Daten sichtbar. Bestanden.
+- **Zugriff:** Nur mit dem öffentlichen Schlüssel sind Lesen, Ändern und Löschen verwehrt (401/403). Bestanden. Löschen auf Kunden, Projekten und Timern ist verwehrt (Datenbank-Tests PROJ-5). **Fremder angemeldeter Nutzer: noch offen** (Skript `supabase/tests/PROJ-5-delete-rules.sql`, siehe «Offen»).
+- **Eingaben:** HTML, Skripte und SQL-Zeichen in der Beschreibung erscheinen in Liste, Formular und Rückfrage als Text, kein Skript läuft, kein Bild wird geladen. Eine ungültige Kunden-Kennung in der Adresse wird ignoriert (kein Fehler, keine Anfrage mit dem Text). Bestanden.
+- **Geheimnisse und Konsole:** keine Schlüssel in der ausgelieferten Seite, keine Konsolenfehler. Bestanden.
+- **Löschen:** Die Oberfläche löscht immer genau einen Eintrag über seine Kennung; die Datenbank erlaubt es nur dem Besitzer. Kein Massenlöschen aus der Oberfläche möglich.
+- **Rate Limiting:** keine eigenen Schnittstellen, es gelten die Grenzen von Supabase. Nicht gesondert getestet.
+
+### Fehler
+**BUG-1 (Medium): Bei mehr als 1000 Einträgen in einem Monat fehlt der Hinweis, die Summen sind still unvollständig.**
+- *Schritte:* Mehr als 1000 Einträge in einem Monat anlegen, `/zeiten` für diesen Monat öffnen. (Reproduziert mit 1001 Einträgen: Datenbank enthält 1001, die Abfrage mit `limit(1001)` liefert 1000, `range(0, 1000)` ebenfalls 1000.)
+- *Erwartet:* Hinweis «Es werden nicht alle Einträge angezeigt, bitte Filter nutzen», Summen als unvollständig benannt. *Ist:* kein Hinweis, Summen zählen nur 1000.
+- *Ursache:* Supabase (PostgREST) begrenzt jede Antwort auf 1000 Zeilen. Die Datenschicht fragt 1001 an, um «mehr als 1000» zu erkennen, bekommt aber nie mehr als 1000 und setzt «truncated» nie. Die Vitest-Tests mit nachgebautem Client sahen das nicht.
+- *Auswirkung:* Gering für diese Seite (über 1000 Einträge pro Monat sind für eine Einzelperson unrealistisch), aber **wichtig für PROJ-8 und PROJ-9**: Der CSV-Export «aller Zeiten» wird schnell über 1000 Zeilen haben und muss seitenweise laden (mehrere Abfragen), sonst fehlen Zeilen ohne Fehlermeldung.
+- *Lösungsrichtung (für `/backend`):* höchstens 1000 anfragen und die Gesamtzahl über den Zähler der Datenbank (`count: exact`) lesen, oder 999 als Obergrenze anfragen und über 1000 erkennen. Test: `tests/PROJ-5-zeiten-qa.spec.ts` («Edge: mehr als 1000 Einträge», derzeit als erwarteter Fehler markiert).
+
+**BUG-2 (Medium): Nach dem Schliessen von «Zeit bearbeiten» oder «Eintrag löschen?» ohne Änderung kehrt der Fokus nicht zum auslösenden Knopf zurück.**
+- *Schritte:* Mit Tab zu «Bearbeiten» (oder «Löschen») eines Eintrags gehen, mit Enter öffnen, mit Escape oder «Abbrechen» schliessen.
+- *Erwartet (Spec):* Fokus liegt wieder auf dem Knopf. *Ist:* Der Fokus fällt auf die Seite zurück, Tastatur- und Screenreader-Nutzer müssen von vorn beginnen.
+- *Ursache:* `useRestoreFocus` merkt sich den Auslöser nur beim Wechsel von «zu» auf «offen». Die Dialoge in `use-entry-actions.tsx` werden schon geöffnet eingehängt, der Wechsel findet nie statt. Betrifft nur Bearbeiten und Löschen (das Erfassen-Formular ist immer eingehängt und funktioniert).
+- *Lösungsrichtung (für `/frontend`):* Auslöser beim Öffnen selbst merken (`document.activeElement` in `onEdit`/`onDelete`) und beim Schliessen dorthin zurückgeben, oder die Dialoge immer eingehängt lassen. Test: «AC: Fokus kehrt nach Abbrechen, Escape und Speichern … zurück» (derzeit als erwarteter Fehler markiert). Der Fokus nach dem Löschen und nach dem Verschieben (Nachbar, sonst Überschrift) funktioniert.
+
+### Beobachtungen (kein Fehler)
+- **Künstlicher Doppelklick:** Zwei programmatische Klicks im selben Takt (gleiche Millisekunde) senden «Speichern» und «Löschen» zweimal; ein echter Doppelklick nicht (getestet, genau eine Anfrage, der Knopf ist sofort deaktiviert). Mit Maus, Tastatur und Touch nicht erreichbar, keine Massnahme nötig.
+- **Rückfrage am Handy:** Der rote Knopf «Löschen» steht über «Abbrechen» (Standardanordnung des Dialogs). Der Fokus liegt auf «Abbrechen», das Löschen braucht einen bewussten Klick; ein Hinweis für die Sichtprüfung, kein Fehler.
+- **Browser:** Firefox und Safari ungetestet.
+
+### Offen
+- **Skript im SQL-Editor ausführen** (`supabase/tests/PROJ-5-delete-rules.sql`, Anleitung siehe «Offen» in den Backend-Notizen): prüft fremden Nutzer, Besitzerwechsel, Verschieben auf archivierte Projekte. Betrifft 3 Kriterien (Löschen nur für den Besitzer, fremder Nutzer, fremdes Projekt). Ergebnis hier nachtragen.
+- **Entscheidung:** Welche Fehler vor dem Deploy behoben werden (Empfehlung: beide, jeweils klein).
+
+### Produktionsreife
+**Bereit nach Entscheidung:** Keine kritischen oder hohen Fehler. Empfehlung: BUG-2 (Fokus, Zugänglichkeit laut Spec) und BUG-1 (Hinweis, Grundlage für PROJ-9) vor dem Deploy beheben, dazu das SQL-Skript ausführen.
 
 ## Deployment
 _To be added by /deploy_
