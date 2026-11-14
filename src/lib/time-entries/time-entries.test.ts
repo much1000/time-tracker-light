@@ -345,4 +345,59 @@ describe('InMemoryTimeEntriesRepository', () => {
     await customers.archiveCustomer(customerId)
     expect(await kind(repo.createEntry(input()))).toBe('target-archived')
   })
+
+  it('listMonth: Monat, Filter, Reihenfolge und Obergrenze', async () => {
+    const other = await customers.createCustomer({ code: 'ABC', name: 'Abc GmbH' })
+    const otherProject = (await customers.getCustomer(other.id))!.projects[0].id
+    await repo.createEntry(input({ date: '2025-03-10', startTime: '08:00', endTime: '09:00', durationMinutes: 60, billableMinutes: 60, description: 'a' }))
+    await repo.createEntry(input({ date: '2025-03-10', description: null }))
+    await repo.createEntry(input({ date: '2025-03-12', description: 'neu' }))
+    await repo.createEntry(input({ date: '2025-04-01', description: 'april' }))
+    await repo.createEntry(input({ projectId: otherProject, date: '2025-03-11', description: null }))
+
+    const march = await repo.listMonth({ month: '2025-03' })
+    expect(march.truncated).toBe(false)
+    expect(march.entries.map((e) => `${e.date}:${e.description ?? '·'}`)).toEqual([
+      '2025-03-12:neu',
+      '2025-03-11:·',
+      '2025-03-10:a',
+      '2025-03-10:·',
+    ])
+    expect((await repo.listMonth({ month: '2025-03', customerId: other.id })).entries.map((e) => e.date)).toEqual(['2025-03-11'])
+    expect((await repo.listMonth({ month: '2025-03', withoutDescription: true })).entries.map((e) => e.date)).toEqual(['2025-03-11', '2025-03-10'])
+    expect((await repo.listMonth({ month: '2025-03', customerId, withoutDescription: true })).entries.map((e) => e.date)).toEqual(['2025-03-10'])
+    expect((await repo.listMonth({ month: '2025-05' })).entries).toEqual([])
+  })
+
+  it('updateEntry ändert alle Felder, behält Anlegezeitpunkt und Kennung, meldet fehlende Einträge', async () => {
+    const entry = await repo.createEntry(input({ date: '2025-03-10', description: 'alt' }))
+    const updated = await repo.updateEntry(entry.id, input({ date: '2025-04-02', durationMinutes: 30, billableMinutes: 0, description: 'neu' }))
+    expect(updated).toMatchObject({ id: entry.id, date: '2025-04-02', durationMinutes: 30, billableMinutes: 0, description: 'neu' })
+    expect(updated.createdAt).toBe(entry.createdAt)
+    expect((await repo.listMonth({ month: '2025-03' })).entries).toEqual([])
+    expect((await repo.listMonth({ month: '2025-04' })).entries).toHaveLength(1)
+    expect(await kind(repo.updateEntry('gibt-es-nicht', input()))).toBe('entry-not-found')
+  })
+
+  it('updateEntry: Datum nur bei Änderung gegen die Zukunft geprüft, archiviertes Ziel nur bei Wechsel abgelehnt', async () => {
+    const entry = await repo.createEntry(input({ date: '2025-03-10' }))
+    expect(await kind(repo.updateEntry(entry.id, input({ date: '2999-01-01' })))).toBe('date-in-future')
+
+    const second = await customers.createProject(customerId, { name: 'Zweit' })
+    await customers.archiveProject(second.id)
+    // Wechsel auf ein archiviertes Projekt: abgelehnt
+    expect(await kind(repo.updateEntry(entry.id, input({ date: '2025-03-10', projectId: second.id })))).toBe('target-archived')
+    // Ohne Wechsel bleibt ein Eintrag auf einem inzwischen archivierten Projekt bearbeitbar
+    await customers.archiveCustomer(customerId)
+    const edited = await repo.updateEntry(entry.id, input({ date: '2025-03-10', description: 'korrigiert' }))
+    expect(edited.description).toBe('korrigiert')
+  })
+
+  it('deleteEntry löscht genau einen Eintrag, ein zweites Mal wird «nicht vorhanden» gemeldet', async () => {
+    const one = await repo.createEntry(input({ date: '2025-03-10' }))
+    const two = await repo.createEntry(input({ date: '2025-03-10' }))
+    await repo.deleteEntry(one.id)
+    expect((await repo.listMonth({ month: '2025-03' })).entries.map((e) => e.id)).toEqual([two.id])
+    expect(await kind(repo.deleteEntry(one.id))).toBe('entry-not-found')
+  })
 })

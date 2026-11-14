@@ -46,3 +46,21 @@ export interface LastTarget {
   customerId: string
   projectId: string
 }
+
+// Filter der Monatsliste (Seite «Zeiten», PROJ-5)
+export interface EntryFilter {
+  // «2026-11»
+  month: string
+  customerId?: string
+  // Nur Einträge ohne Beschreibung
+  withoutDescription?: boolean
+}
+
+export interface MonthEntries {
+  entries: TimeEntry[]
+  // Es gibt mehr Einträge, als angezeigt werden (Obergrenze MONTH_ENTRY_LIMIT): Summen sind unvollständig.
+  truncated: boolean
+}
+
+// Obergrenze der Einträge pro Monatsabfrage
+export const MONTH_ENTRY_LIMIT = 1000

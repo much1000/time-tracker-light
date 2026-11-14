@@ -1,4 +1,11 @@
-import type { BookableCustomer, LastTarget, TimeEntry, TimeEntryInput } from './types'
+import type {
+  BookableCustomer,
+  EntryFilter,
+  LastTarget,
+  MonthEntries,
+  TimeEntry,
+  TimeEntryInput,
+} from './types'
 
 // Schnittstelle zur Datenhaltung für Zeiteinträge.
 // Die Oberfläche kennt nur diese Schnittstelle. Dahinter steht Supabase (supabase-repository.ts),
@@ -13,4 +20,13 @@ export interface TimeEntriesRepository {
   getLastTarget(): Promise<LastTarget | null>
   // Legt einen Eintrag an. Lehnt archivierte Kunden und Projekte ab.
   createEntry(input: TimeEntryInput): Promise<TimeEntry>
+  // Einträge eines Monats (nach Datum des Eintrags), optional nach Kunde und «ohne Beschreibung» gefiltert,
+  // neueste Tage zuerst, innerhalb eines Tages nach Startzeit, sonst nach Anlegezeit. Höchstens
+  // MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
+  listMonth(filter: EntryFilter): Promise<MonthEntries>
+  // Ändert einen Eintrag (alle Felder, gleiche Regeln wie beim Anlegen). Der Anlegezeitpunkt bleibt.
+  // Wirft «entry-not-found», wenn es ihn nicht mehr gibt.
+  updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry>
+  // Löscht genau einen Eintrag endgültig. Wirft «entry-not-found», wenn es ihn nicht mehr gibt.
+  deleteEntry(id: string): Promise<void>
 }

@@ -173,4 +173,91 @@ describe('SupabaseTimeEntriesRepository', () => {
     const down = fakeClient([{ error: { status: 503, message: 'Service Unavailable' } }])
     expect(await failure(down.repo.listTargets())).toBe('unreachable')
   })
+
+  it('listMonth fragt den Monat ab, sortiert neueste Tage zuerst und meldet eine abgeschnittene Liste nicht', async () => {
+    const { repo, calls } = fakeClient([
+      {
+        data: [
+          row({ id: 'a', entry_date: '2026-11-09', start_time: '08:00:00', end_time: '09:00:00' }),
+          row({ id: 'b', entry_date: '2026-11-10', start_time: null, end_time: null, created_at: '2026-11-10T09:00:00Z' }),
+          row({ id: 'c', entry_date: '2026-11-10', start_time: '10:00:00', end_time: '11:00:00' }),
+          row({ id: 'd', entry_date: '2026-11-10', start_time: null, end_time: null, created_at: '2026-11-10T07:00:00Z' }),
+        ],
+      },
+    ])
+    const result = await repo.listMonth({ month: '2026-11' })
+    expect(result.truncated).toBe(false)
+    expect(result.entries.map((e) => e.id)).toEqual(['c', 'd', 'b', 'a'])
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-11-01'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-12-01'])
+    expect(ops.find(([name]) => name === 'limit')?.[1]).toEqual([1001])
+    // Ohne Filter keine Kunden- und Beschreibungsbedingung
+    expect(ops.some(([name]) => name === 'eq')).toBe(false)
+    expect(ops.some(([name]) => name === 'is')).toBe(false)
+  })
+
+  it('listMonth wendet Kunden- und Beschreibungsfilter in der Abfrage an (innere Verknüpfung)', async () => {
+    const { repo, calls } = fakeClient([{ data: [] }])
+    await repo.listMonth({ month: '2026-12', customerId: 'c1', withoutDescription: true })
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'select')?.[1][0]).toContain('!inner')
+    expect(ops.find(([name]) => name === 'eq')?.[1]).toEqual(['project.customer_id', 'c1'])
+    expect(ops.find(([name]) => name === 'is')?.[1]).toEqual(['description', null])
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-12-01'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2027-01-01'])
+  })
+
+  it('listMonth schneidet bei mehr als 1000 Einträgen ab und meldet es', async () => {
+    const many = Array.from({ length: 1001 }, (_, i) => row({ id: `e${i}` }))
+    const { repo } = fakeClient([{ data: many }])
+    const result = await repo.listMonth({ month: '2026-11' })
+    expect(result.truncated).toBe(true)
+    expect(result.entries).toHaveLength(1000)
+
+    const exact = fakeClient([{ data: many.slice(0, 1000) }])
+    const full = await exact.repo.listMonth({ month: '2026-11' })
+    expect(full.truncated).toBe(false)
+    expect(full.entries).toHaveLength(1000)
+  })
+
+  it('updateEntry schickt alle Felder (ohne Besitzer und Anlegezeitpunkt) für genau diesen Eintrag', async () => {
+    const { repo, calls } = fakeClient([{ data: row({ description: 'Neu' }) }])
+    const result = await repo.updateEntry('e1', { ...input, description: 'Neu' })
+    expect(result.description).toBe('Neu')
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'update')?.[1][0]).toEqual({
+      project_id: 'p1',
+      entry_date: '2026-11-13',
+      duration_minutes: 90,
+      billable_minutes: 60,
+      start_time: '08:30',
+      end_time: '10:00',
+      description: 'Neu',
+    })
+    expect(ops.find(([name]) => name === 'eq')?.[1]).toEqual(['id', 'e1'])
+  })
+
+  it('updateEntry meldet fehlende Einträge, archivierte Ziele und Datum in der Zukunft', async () => {
+    const gone = fakeClient([{ error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } }])
+    expect(await failure(gone.repo.updateEntry('e1', input))).toBe('entry-not-found')
+    const archived = fakeClient([{ error: { code: '23514', message: 'target_archived' } }])
+    expect(await failure(archived.repo.updateEntry('e1', input))).toBe('target-archived')
+    const future = fakeClient([{ error: { code: '23514', message: 'date_in_future' } }])
+    expect(await failure(future.repo.updateEntry('e1', input))).toBe('date-in-future')
+  })
+
+  it('deleteEntry löscht genau einen Eintrag über seine Kennung und meldet fehlende', async () => {
+    const ok = fakeClient([{ data: [{ id: 'e1' }] }])
+    await ok.repo.deleteEntry('e1')
+    expect(ok.calls[0].ops.find(([name]) => name === 'delete')).toBeDefined()
+    expect(ok.calls[0].ops.find(([name]) => name === 'eq')?.[1]).toEqual(['id', 'e1'])
+
+    const none = fakeClient([{ data: [] }])
+    expect(await failure(none.repo.deleteEntry('e1'))).toBe('entry-not-found')
+    const offline = fakeClient([{ error: { status: 0, message: 'TypeError: Failed to fetch' } }])
+    expect(await failure(offline.repo.deleteEntry('e1'))).toBe('unreachable')
+    const session = fakeClient([{ error: { status: 401, message: 'JWT expired' } }])
+    expect(await failure(session.repo.deleteEntry('e1'))).toBe('session')
+  })
 })

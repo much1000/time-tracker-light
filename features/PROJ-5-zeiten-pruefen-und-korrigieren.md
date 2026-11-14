@@ -1,6 +1,6 @@
 # PROJ-5: Zeiten prüfen und korrigieren
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-14
 **Last Updated:** 2026-11-14
 
@@ -234,6 +234,30 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod` (Formular), `@supab
 - **Testdaten:** Mit PROJ-5 lassen sich Testeinträge in der App löschen; die Tests können damit hinter sich aufräumen (Löschen über die Oberfläche statt SQL-Skript).
 - **Änderung am Formular von PROJ-4:** Das Erfassen darf sich nicht verschlechtern; alle PROJ-4-Tests laufen weiter (Regression).
 - **Mobile:** Aktionen pro Eintrag, Filterleiste und Monatsleiste bei 320 px, 44-px-Ziele, Rückfrage als Blatt.
+
+## Implementation Notes (Backend)
+**Stand:** 2026-11-15. Das Löschrecht ist auf Supabase angewendet, die Datenschicht für Monatsliste, Ändern und Löschen steht und ist gegen die echte Datenbank getestet. Die Oberfläche (`/frontend`) folgt.
+
+### Datenbank
+- **Migration** `supabase/migrations/20261115000000_time_entries_delete.sql`, am 2026-11-15 mit Freigabe des Nutzers über Supabase angewendet: Policy `time_entries_delete_own` (nur `authenticated`, nur eigene Zeilen) und Recht `DELETE` auf `time_entries`. Sonst ändert sich nichts.
+- **Per Abfrage der Systemkataloge bestätigt:** `authenticated` hat `SELECT`, `INSERT`, `UPDATE`, `DELETE` auf `time_entries`; Policies für alle vier Aktionen; auf **keiner anderen Tabelle** (Kunden, Projekte, Timer) gibt es `DELETE` für `anon` oder `authenticated`; `anon` hat nichts.
+- Das Ändern besteht seit PROJ-4 mit allen Regeln (Besitzer fest, Dauer, verrechenbar, Uhrzeiten, Beschreibung, Datum nicht in der Zukunft bei Änderung, Wechsel nur auf aktive Projekte).
+
+### Code
+- `src/lib/time-entries/month.ts`: Monats-Hilfen (lesen, aktueller Monat nach Zürcher Uhr, ungültig oder Zukunft wird zum aktuellen Monat, vor- und zurückblättern über Jahresgrenzen, Datumsbereich, Anzeige «November 2026»).
+- `repository.ts` / `supabase-repository.ts`: neue Methoden `listMonth(filter)` (Monat nach Datum des Eintrags, Kundenfilter über innere Verknüpfung, «ohne Beschreibung», neueste Tage zuerst, innerhalb eines Tages nach Startzeit, höchstens 1000, «truncated» bei mehr), `updateEntry(id, input)` (alle Felder, Anlegezeitpunkt bleibt), `deleteEntry(id)` (genau eine Zeile über die Kennung). Neue Fehlerart `entry-not-found` («Dieser Eintrag existiert nicht mehr»). Typen `EntryFilter`, `MonthEntries`, `MONTH_ENTRY_LIMIT`.
+- `in-memory-repository.ts` (Test-Double) kennt dieselben Methoden und Regeln.
+- Keine API-Routen, keine neuen Pakete.
+
+### Tests
+- **Vitest:** 310 von 310 grün (neu: `month.test.ts` mit 28 Tests; Monatsliste, Ändern, Löschen in `supabase-repository.test.ts` und `time-entries.test.ts`). `tsc` sauber, Lint ohne Fehler.
+- **E2E gegen die echte Datenbank** (`tests/PROJ-5-zeiten-datenbank.spec.ts`, 9 Tests, mit der echten Datenschicht und der Sitzung des Testkontos), alle grün: Monatsliste (nur der Monat, Reihenfolge, Uhrzeit vor ohne, 24:00 bleibt «24:00», Nachbarmonate leer), Kundenfilter, «ohne Beschreibung», beides kombiniert, Ändern aller Felder (Anlegezeitpunkt bleibt, Eintrag wechselt den Monat), Regeln beim Ändern (Zukunft, verrechenbar über Dauer, Dauer 0, Ende vor Start, Beschreibung zu lang oder mit Rand, unbekanntes Projekt, unbekannter Eintrag), archiviertes Projekt (Bearbeiten ohne Verschieben ok, Verschieben abgelehnt), Löschen (genau ein Eintrag, zweites Mal «nicht vorhanden»), Sicherheit (Kunden, Projekte und Timer nicht löschbar, `anon` nicht, eigener Eintrag über die Kennung löschbar). Die Tests räumen ihre Einträge selbst auf (Löschen ist jetzt möglich) und archivieren den Testkunden.
+- **Skript für fremde Nutzer** `supabase/tests/PROJ-5-delete-rules.sql` (zweites echtes Konto, `anon`, in einer zurückgerollten Transaktion): Ausführen durch Claude Code wurde von der Berechtigungsprüfung abgelehnt (nicht umgangen), muss vom Nutzer im SQL-Editor ausgeführt werden (siehe «Offen»).
+
+### Offen
+- **Skript im SQL-Editor ausführen und Ergebnis prüfen:** `supabase/tests/PROJ-5-delete-rules.sql` (alles markieren, Run; es endet bewusst mit «RESULT …» und rollt alles zurück). Es prüft: zweiter Nutzer sieht, löscht und ändert nichts (auch ein Löschen ohne Bedingung trifft 0 Zeilen), Besitzer unverändert, Verschieben und Datumsregeln beim Ändern, Bearbeiten auf archiviertem Projekt, Löschen genau einer Zeile (zweites Mal 0), Eintrag bis 24:00 löschbar, Kunden, Projekte und Timer nicht löschbar, `anon` ohne Zugriff. Zeilen mit «(bad)» wären Fehler.
+- **Regression:** Gesamtlauf aller E2E-Tests (die Datenschicht von PROJ-4 wurde erweitert, nicht verändert).
+- **Frontend (`/frontend PROJ-5`):** Seite «Zeiten», Filterleiste, Formular im Bearbeiten-Modus mit Schalter «Bis Mitternacht», Löschen-Rückfrage, Aktionen unter «Heute».
 
 ## QA Test Results
 _To be added by /qa_
