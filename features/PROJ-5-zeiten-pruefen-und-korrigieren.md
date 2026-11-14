@@ -1,6 +1,6 @@
 # PROJ-5: Zeiten prüfen und korrigieren
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-14
 **Last Updated:** 2026-11-14
 
@@ -115,9 +115,9 @@
 - **Design:** `docs/design-system.md`, WCAG AA, shadcn/ui vor eigenen Komponenten.
 
 ## Open Questions
-- [ ] **Eintrag mit Ende 24:00 im Formular:** Das Zeitfeld kennt 24:00 nicht (Browser-Zeitfeld). Wie 24:00 beim Bearbeiten angezeigt und unverändert bewahrt wird (z. B. Textfeld oder Hinweis «Ende 24:00»), klärt `/architecture`.
-- [ ] **Obergrenze der Einträge pro Monat:** Die genaue Grenze (z. B. 1000) und die Art des Hinweises klärt `/architecture`.
-- [ ] **Filter in der Adresse:** Welche Parameter (Monat, Kunde, «ohne Beschreibung») die Adresse trägt, klärt `/architecture`.
+- [x] **Eintrag mit Ende 24:00 im Formular (entschieden in `/architecture`: Schalter «Bis Mitternacht (24:00)» neben dem Feld «Bis»):** Das Zeitfeld kennt 24:00 nicht (Browser-Zeitfeld). Wie 24:00 beim Bearbeiten angezeigt und unverändert bewahrt wird (z. B. Textfeld oder Hinweis «Ende 24:00»), klärt `/architecture`.
+- [x] **Obergrenze der Einträge pro Monat (entschieden in `/architecture`: 1000, mit Hinweis und unvollständigen Summen):** Die genaue Grenze (z. B. 1000) und die Art des Hinweises klärt `/architecture`.
+- [x] **Filter in der Adresse (entschieden in `/architecture`: Seitenparameter für Monat, Kunde und «ohne Beschreibung»):** Welche Parameter (Monat, Kunde, «ohne Beschreibung») die Adresse trägt, klärt `/architecture`.
 
 ## Decision Log
 
@@ -138,12 +138,102 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine neuen Daten, nur ein neues Recht: Löschen eigener Zeiteinträge (Row Level Security und `DELETE` nur für angemeldete Nutzer) | Das Ändern ist schon mit allen Regeln möglich (PROJ-4); das Löschen ist die einzige nötige Änderung der Zugriffsregeln und braucht die Freigabe des Nutzers | 2026-11-14 |
+| Zuerst `/backend` (kleine Datenbank-Änderung), dann `/frontend` ohne Platzhalter | Die Änderung ist klein; echte Daten lassen sich sofort korrigieren und Testdaten in der App löschen | 2026-11-14 |
+| Bearbeiten über dasselbe Formular wie Erfassen (zusätzlicher Modus), gleiche Prüfregeln | Ein Formular, eine Absicherung; die Datenbank prüft beim Ändern dieselben Regeln | 2026-11-14 |
+| Der Anlegezeitpunkt bleibt beim Bearbeiten unverändert | Die Vorbelegung «zuletzt benutztes Ziel» (PROJ-4) richtet sich nach dem Anlegen, nicht nach dem Korrigieren | 2026-11-14 |
+| Ende 24:00 über einen Schalter «Bis Mitternacht (24:00)» neben dem Feld «Bis» (im Formular zum Erfassen und Bearbeiten) | Das Browser-Zeitfeld kennt 24:00 nicht; der Schalter lässt das gewohnte Zeitfeld (Handy-Wähler) bestehen und bewahrt Einträge aus dem Timer unverändert; löst die offene Frage der Spec | 2026-11-14 |
+| Der Monat richtet sich nach dem Datum des Eintrags (Zürcher Uhr), nicht nach der Uhrzeit | Einträge gehören zu genau einem Tag (kein Eintrag über Mitternacht) | 2026-11-14 |
+| Monat, Kunde und «ohne Beschreibung» stehen in der Adresse (Seitenparameter) | Zurück-Taste, Neuladen und Links führen zur selben Ansicht; löst die offene Frage der Spec | 2026-11-14 |
+| Kunden- und Beschreibungsfilter werden in der Datenbankabfrage angewendet | Obergrenze und Summen passen zum Filter; keine Filterung auf abgeschnittenen Daten | 2026-11-14 |
+| Obergrenze 1000 Einträge pro Monatsabfrage; bei Überschreiten Hinweis und Kennzeichnung der Summen als unvollständig | Schutz der Oberfläche und der kostenlosen Datenbank; realistisch liegen Monate weit darunter; löst die offene Frage der Spec | 2026-11-14 |
+| Tages- und Monatssummen entstehen in der Oberfläche aus den geladenen Einträgen, nicht in der Datenbank | Folgen automatisch jedem Filter; bei den erwarteten Mengen schnell genug; Auswertung pro Kunde und Projekt ist PROJ-7 und PROJ-8 | 2026-11-14 |
+| Eintragszeile, Formular und Rückfrage aus PROJ-3, PROJ-4 werden um Aktionen und einen Modus erweitert statt kopiert | Weniger Doppelcode; «Heute» auf der Startseite und die Seite «Zeiten» zeigen dasselbe Verhalten | 2026-11-14 |
+| Ein Eintrag auf einem archivierten Projekt ist im Bearbeiten-Formular als aktueller Wert wählbar (mit Hinweis «archiviert»), Verschieben nur auf aktive Projekte | Entspricht der Datenbankregel (Projekt unverändert: erlaubt, Wechsel nur auf aktive Ziele) | 2026-11-14 |
+| Direkt über Supabase ohne eigene API-Routen, Browser lädt und schreibt | Wie PROJ-3, PROJ-4 und PROJ-6: die Datenbank schützt die Daten | 2026-11-14 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Backend nötig?
+Ja, aber klein. Die Tabelle der Zeiteinträge besteht schon (PROJ-4), und die Datenbank erlaubt das **Ändern** eigener Einträge samt aller Prüfregeln bereits. Neu ist nur das **Löschrecht** für eigene Zeiteinträge (eine Änderung der Zugriffsregeln: braucht die ausdrückliche Freigabe des Nutzers). Alles andere ist Oberfläche und Datenschicht: Monatsliste mit Filtern, Ändern, Löschen. Eigene Schnittstellen (API-Routen) sind nicht nötig; die Seiten sprechen direkt mit Supabase wie bisher.
+
+**Bau-Reihenfolge:** zuerst `/backend` (die kleine Datenbank-Änderung samt Prüfung), dann `/frontend` direkt gegen die echte Datenschicht (keine Platzhalter-Phase). Danach lassen sich auch Testeinträge in der App löschen.
+
+### A) Seitenstruktur
+```
+App-Bereich (geschützt, mit Navigation)
++-- Navigation: neuer Eintrag «Zeiten» (Reihenfolge: Start, Zeiten, Kunden, Status)
++-- /zeiten  (neue Seite)
+|   +-- Kopf: Titel «Zeiten», Knopf «Zeit erfassen»
+|   +-- Monatsleiste: «Vorheriger Monat», Monatsname und Jahr, «Nächster Monat» (nach dem aktuellen deaktiviert)
+|   +-- Filter: Kunde (Alle Kunden, auch archivierte), Schalter «Nur ohne Beschreibung», «Filter zurücksetzen»
+|   +-- Monatssumme: gearbeitet, verrechenbar (folgt dem Filter)
+|   +-- Tagesgruppen (neueste zuerst)
+|   |   +-- Tageskopf: Wochentag, Datum, Tagessumme
+|   |   +-- Einträge: Kürzel · Projekt, Beschreibung (oder «Keine Beschreibung»), Dauer, verrechenbar,
+|   |       Uhrzeiten, Aktionen «Bearbeiten» und «Löschen»
+|   +-- Hinweis bei zu vielen Einträgen, Leerzustand, Filter ohne Treffer, Lade- und Fehlerzustand
++-- Startseite «/»: Abschnitt «Heute» bekommt «Bearbeiten» und «Löschen» je Eintrag und den Link «Alle Zeiten»
++-- Formular «Zeit bearbeiten» (Dialog am Laptop, Blatt am Handy): dasselbe Formular wie «Zeit erfassen», vorausgefüllt
++-- Rückfrage «Eintrag löschen?» (zeigt Kunde, Projekt, Datum, Dauer, Beschreibung; Fokus auf «Abbrechen»)
+```
+
+### B) Bausteine
+- **Vorhandene shadcn-Bausteine:** Card, Button, Select (Kunde), Switch (Schalter «Nur ohne Beschreibung» und «Bis Mitternacht»), Alert Dialog (Rückfrage), Badge (Markierung «Keine Beschreibung», «archiviert»), Alert, Skeleton, Sonner. Nichts Neues zu installieren.
+- **Wiederverwendet:** `ResponsiveDialog` und das Zeiterfassungs-Formular aus PROJ-4 (bekommt einen Bearbeiten-Modus), die Eintragszeile aus PROJ-4 (bekommt die Aktionen), Rückfrage-Dialog aus PROJ-3, Lade- und Fehlerzustände, Formate und Prüfregeln für Dauer und Uhrzeiten, Hook zum Laden.
+- **Neue eigene Zusammensetzungen:** Seite «Zeiten» mit Monatsleiste, Filterleiste, Tagesgruppe, Lösch-Rückfrage, Monats-Hilfsfunktionen (Monat lesen und anzeigen, Vor- und Zurückblättern, nicht in der Zukunft).
+- **Formular im Bearbeiten-Modus:** Alle Felder sind mit den Werten des Eintrags vorbelegt. «Von–bis» ist gewählt, wenn der Eintrag Uhrzeiten hat, sonst «Nur Dauer». Die verrechenbare Dauer folgt nicht mehr automatisch (sie ist ein bewusster Wert). Der Überschneidungs-Hinweis ignoriert den Eintrag selbst. Hat ein Eintrag ein archiviertes Projekt, steht es als aktueller Wert mit Hinweis «archiviert» in der Auswahl, weitere Ziele sind nur aktive.
+- **Ende 24:00:** Neben dem Feld «Bis» steht ein Schalter «Bis Mitternacht (24:00)». Eingeschaltet gilt 24:00 als Ende und das Zeitfeld ist deaktiviert. Das löst die offene Frage der Spec (das Browser-Zeitfeld kennt kein 24:00) und macht Einträge bis Mitternacht auch beim Erfassen von Hand möglich.
+- **Beschriftungen der Aktionen** nennen den Eintrag («Eintrag von 13.11., MUS · Allgemein, 1:30 bearbeiten»), damit Screenreader sie unterscheiden.
+- **Navigation:** Der Eintrag «Zeiten» kommt in die zentrale Liste der Navigationspunkte; Seitenleiste und Tab-Leiste übernehmen ihn (vier Einträge, auch bei 320 px nutzbar).
+
+### C) Datenmodell (in Alltagssprache)
+Die **Daten bleiben unverändert**: Ein Zeiteintrag hat weiterhin Besitzer, Projekt, Datum, Dauer, verrechenbare Dauer, optionale Start- und Endzeit, optionale Beschreibung, Angelegt- und Geändert-Zeitpunkt (PROJ-4, Endzeit darf 24:00 sein, PROJ-6).
+
+Neu ist nur ein **Recht**: Der angemeldete Nutzer darf seine eigenen Zeiteinträge **löschen**. Für Kunden, Projekte und laufende Timer ändert sich nichts.
+
+Der **Anlegezeitpunkt bleibt beim Bearbeiten erhalten** (damit bleibt auch die Vorbelegung «zuletzt benutztes Ziel» stabil). Zusammenfassungen (Tages- und Monatssummen) entstehen in der Oberfläche aus den geladenen Einträgen und werden nirgends gespeichert.
+
+### D) Regeln in der Datenbank (das Sicherheitsnetz)
+- **Löschen nur eigener Zeiteinträge:** neue Regel (Row Level Security) und das Recht `DELETE` auf die Tabelle der Zeiteinträge, nur für angemeldete Nutzer. Löschen betrifft genau die angeforderten Zeilen des Besitzers; `anon` hat nichts.
+- **Ändern:** gilt wie bisher mit allen Regeln aus PROJ-4: Besitzer fest, Dauer 1 bis 1440, verrechenbar 0 bis zur Dauer, Uhrzeiten nur zusammen und minutengenau, Ende nach Start, Beschreibung höchstens 1000 Zeichen, Datum bei Änderung nicht in der Zukunft, Verschieben nur auf aktive Projekte des Besitzers.
+- **Kein Löschen von Kunden und Projekten:** unverändert. Ein Projekt mit Zeiteinträgen lässt sich weiterhin nie löschen (auch nicht, wenn alle seine Einträge gelöscht wurden: Löschen von Projekten gibt es gar nicht).
+
+### E) Ablauf in Worten
+1. **Seite öffnen:** Aus der Adresse werden Monat, Kunde und «ohne Beschreibung» gelesen (ungültig oder in der Zukunft: aktueller Monat). Die Seite lädt die Einträge des Monats (nach Datum des Eintrags, nicht nach Uhrzeit) mit Kürzel, Kunde und Projekt, optional gefiltert, neueste zuerst, höchstens 1000. Sie bildet Tages- und Monatssummen und gruppiert nach Tag. Werden mehr als 1000 gefunden, erscheint der Hinweis «Es werden nicht alle Einträge angezeigt, bitte Filter nutzen» und die Summen sind als unvollständig gekennzeichnet.
+2. **Filter und Monat wechseln:** Änderungen schreiben sich in die Adresse (Zurück-Taste, Neuladen und Links funktionieren) und laden die Liste neu.
+3. **Bearbeiten:** «Bearbeiten» öffnet das Formular im Bearbeiten-Modus, das Speichern schickt die Änderung für diesen einen Eintrag. Danach schliesst es sich, die Liste lädt neu (der Eintrag erscheint beim neuen Tag oder verschwindet bei einem anderen Monat, die Bestätigung nennt dann das neue Datum).
+4. **Löschen:** «Löschen» zeigt die Rückfrage, die Bestätigung entfernt genau diesen Eintrag. Danach lädt die Liste neu, und der Fokus geht zum nächsten sinnvollen Element.
+5. **Startseite:** Die Liste «Heute» nutzt dieselben Aktionen; nach Speichern oder Löschen lädt sie neu, und die Karte des Timers bleibt unberührt.
+6. **Fehler:** Eintrag nicht mehr vorhanden (auf einem anderen Gerät gelöscht), Ziel archiviert, Netzwerk, abgelaufene Sitzung und Dienstfehler werden in verständliche Meldungen übersetzt; bei jedem Fehler bleiben die Eingaben im Formular erhalten, und der Zustand ist unverändert.
+
+### F) Tech-Entscheidungen (für Nicht-Techniker begründet)
+- **Löschrecht nur auf Zeiteinträge, endgültig:** Einfach und ehrlich, und die Auswertungen (PROJ-7 bis PROJ-9) sehen nie halb gelöschte Daten. Kunden und Projekte bleiben unlöschbar (Archiv).
+- **Bearbeiten über dasselbe Formular:** Ein Formular, dieselben Prüfregeln und dieselbe Datenbank-Absicherung für Erfassen und Korrigieren. Das Formular bekommt nur einen zusätzlichen Modus.
+- **Summen in der Oberfläche statt in der Datenbank:** Bei bis zu ein paar hundert Einträgen pro Monat ist das schnell genug und folgt automatisch jedem Filter. Wird die Liste abgeschnitten, sagt die Seite das ausdrücklich.
+- **Monat, Kunde und Filter in der Adresse:** Zurück-Taste, Neuladen und Links führen zur selben Ansicht; kein versteckter Zustand.
+- **Filter in der Datenbankabfrage:** Kunde und «ohne Beschreibung» filtert die Datenbank, nicht die Oberfläche, sodass die Obergrenze und die Summen zum Filter passen.
+- **Schalter «Bis Mitternacht»:** Statt das Browser-Zeitfeld zu ersetzen (am Handy der gewohnte Wähler) bekommt 24:00 einen eigenen Schalter.
+- **Anlegezeitpunkt bleibt beim Ändern:** Die Vorbelegung «zuletzt benutztes Ziel» (PROJ-4) richtet sich nach dem Anlegen, nicht nach dem Korrigieren.
+- **Browser lädt, Browser schreibt:** wie bei PROJ-3, PROJ-4 und PROJ-6 (Datenschicht mit Schnittstelle). Der Schutz liegt in der Datenbank.
+- **Zuerst Datenbank, dann Oberfläche:** Die Datenbank-Änderung ist klein, und ohne Platzhalter lassen sich gleich echte Daten korrigieren und (Testdaten) löschen.
+
+### G) Abhängigkeiten (Pakete)
+Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod` (Formular), `@supabase/ssr`, `@supabase/supabase-js` (Zugriff), `sonner` (Meldungen), `lucide-react` (Symbole).
+
+### H) Risiken und Hinweise für Bau und QA
+- **Änderung der Zugriffsregeln:** Das Löschrecht braucht die ausdrückliche Freigabe des Nutzers (Projektregel), danach Prüfung per SQL und REST: nur eigene Einträge löschbar, fremde und `anon` nicht, Kunden und Projekte weiterhin nicht, Massenlöschen ohne Filter (Anfrage ohne Bedingung) wirkt nur auf eigene Zeilen. Die Oberfläche löscht immer genau einen Eintrag über seine Kennung.
+- **Einträge verschieben:** Datum und Projekt ändern sich gleichzeitig; Eintrag verschwindet aus dem Monat. Fokus und Bestätigung testen.
+- **Gleichzeitige Änderung und Löschen auf zwei Geräten:** Der Speichern-Versuch auf einen gelöschten Eintrag muss «existiert nicht mehr» melden (nicht still ins Leere laufen).
+- **Archivierte Projekte:** Bearbeiten ohne Verschieben muss funktionieren (Trigger lässt es zu), Verschieben auf ein archiviertes Projekt nicht.
+- **Zeit-Logik:** Monatsgrenzen nach der Zürcher Uhr (der Monat richtet sich nach dem Eintragsdatum), Wechsel Oktober und Dezember, Sommerzeit-Monate, Schaltjahr (Februar 29).
+- **Viele Einträge:** Die Obergrenze (1000) braucht einen Test mit abgeschnittener Liste; das Seeden grosser Mengen läuft per SQL (Schritt vom Nutzer) oder über die Funktionen; in der Oberfläche genügt ein Test mit gemockter Antwort.
+- **Testdaten:** Mit PROJ-5 lassen sich Testeinträge in der App löschen; die Tests können damit hinter sich aufräumen (Löschen über die Oberfläche statt SQL-Skript).
+- **Änderung am Formular von PROJ-4:** Das Erfassen darf sich nicht verschlechtern; alle PROJ-4-Tests laufen weiter (Regression).
+- **Mobile:** Aktionen pro Eintrag, Filterleiste und Monatsleiste bei 320 px, 44-px-Ziele, Rückfrage als Blatt.
 
 ## QA Test Results
 _To be added by /qa_
