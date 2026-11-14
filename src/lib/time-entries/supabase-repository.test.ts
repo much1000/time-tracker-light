@@ -5,7 +5,7 @@ import { SupabaseTimeEntriesRepository } from './supabase-repository'
 
 // Ein Ergebnis pro Aufruf (in Reihenfolge); jede Methode der Abfragekette gibt dieselbe Kette
 // zurück, `await` liefert das nächste Ergebnis.
-type Result = { data?: unknown; error?: Record<string, unknown> | null }
+type Result = { data?: unknown; error?: Record<string, unknown> | null; count?: number | null }
 
 function fakeClient(results: Result[]) {
   const calls: { table: string; ops: [string, unknown[]][] }[] = []
@@ -22,7 +22,7 @@ function fakeClient(results: Result[]) {
             if (prop === 'then') {
               const result = results[index++] ?? { data: null, error: null }
               return (resolve: (value: Result) => void) =>
-                resolve({ data: result.data ?? null, error: result.error ?? null })
+                resolve({ data: result.data ?? null, error: result.error ?? null, count: result.count ?? null })
             }
             return (...args: unknown[]) => {
               entry.ops.push([prop, args])
@@ -191,7 +191,8 @@ describe('SupabaseTimeEntriesRepository', () => {
     const ops = calls[0].ops
     expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-11-01'])
     expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-12-01'])
-    expect(ops.find(([name]) => name === 'limit')?.[1]).toEqual([1001])
+    expect(ops.find(([name]) => name === 'limit')?.[1]).toEqual([1000])
+    expect(ops.find(([name]) => name === 'select')?.[1][1]).toEqual({ count: 'exact' })
     // Ohne Filter keine Kunden- und Beschreibungsbedingung
     expect(ops.some(([name]) => name === 'eq')).toBe(false)
     expect(ops.some(([name]) => name === 'is')).toBe(false)
@@ -209,13 +210,14 @@ describe('SupabaseTimeEntriesRepository', () => {
   })
 
   it('listMonth schneidet bei mehr als 1000 Einträgen ab und meldet es', async () => {
-    const many = Array.from({ length: 1001 }, (_, i) => row({ id: `e${i}` }))
-    const { repo } = fakeClient([{ data: many }])
+    // Die Datenbank liefert nie mehr als 1000 Zeilen, die Gesamtzahl kommt aus dem Zähler
+    const many = Array.from({ length: 1000 }, (_, i) => row({ id: `e${i}` }))
+    const { repo } = fakeClient([{ data: many, count: 1001 }])
     const result = await repo.listMonth({ month: '2026-11' })
     expect(result.truncated).toBe(true)
     expect(result.entries).toHaveLength(1000)
 
-    const exact = fakeClient([{ data: many.slice(0, 1000) }])
+    const exact = fakeClient([{ data: many, count: 1000 }])
     const full = await exact.repo.listMonth({ month: '2026-11' })
     expect(full.truncated).toBe(false)
     expect(full.entries).toHaveLength(1000)

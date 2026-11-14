@@ -356,10 +356,7 @@ test.describe('Liste und Monatsnavigation', () => {
   })
 
   test('Edge: mehr als 1000 Einträge: Hinweis, nur 1000 angezeigt, Summe unvollständig', async ({ page }) => {
-    // BUG-1 (PROJ-5 QA): Supabase (PostgREST) liefert höchstens 1000 Zeilen pro Antwort, auch bei limit(1001).
-    // Die Datenschicht erkennt «mehr als 1000» deshalb nie: kein Hinweis, Summen still unvollständig.
-    // Bekannte Lücke: Der Test erwartet das richtige Verhalten und gilt bis zur Behebung als erwarteter Fehler.
-    test.fail(true, 'BUG-1: Hinweis bei mehr als 1000 Einträgen fehlt (Antwort der Datenbank ist auf 1000 Zeilen begrenzt)')
+    // BUG-1 (behoben): Supabase liefert höchstens 1000 Zeilen pro Antwort; die Datenschicht zählt daher mit (count: 'exact').
     test.setTimeout(120000)
     const batch = (count: number) =>
       Array.from({ length: count }, () => ({
@@ -622,10 +619,7 @@ test.describe('Bearbeiten', () => {
   })
 
   test('AC: Fokus kehrt nach Abbrechen, Escape und Speichern zum auslösenden Knopf zurück (Bearbeiten und Löschen)', async ({ page }) => {
-    // BUG-2 (PROJ-5 QA): Die Dialoge für Bearbeiten und Löschen werden schon geöffnet eingehängt; useRestoreFocus merkt sich
-    // den Auslöser nur beim Wechsel von «zu» auf «offen» und kennt ihn deshalb nicht: Der Fokus fällt auf die Seite zurück.
-    // Bekannte Lücke: Der Test erwartet das richtige Verhalten und gilt bis zur Behebung als erwarteter Fehler.
-    test.fail(true, 'BUG-2: Fokus kehrt nach dem Schliessen von Bearbeiten und Löschen nicht zum Auslöser zurück')
+    // BUG-2 (behoben): use-entry-actions merkt sich den Auslöser beim Öffnen und gibt den Fokus dorthin zurück.
     await openList(page, listUrl(A))
     const edit = page.getByRole('button', { name: label('2025-03-12', A, 'Allgemein', '1:30', 'bearbeiten') })
     await edit.click()

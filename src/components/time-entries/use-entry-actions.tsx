@@ -40,6 +40,13 @@ export function useEntryActions({ onChanged, containerRef, fallbackRef, isVisibl
   const [busy, setBusy] = useState(false)
   // Nach dem Entfernen eines Eintrags: Fokus zum nächsten sinnvollen Element
   const focusAfterRemoval = useRef<string | null | undefined>(undefined)
+  // Knopf, der den Dialog geöffnet hat (die Dialoge werden schon geöffnet eingehängt, daher hier gemerkt)
+  const openerRef = useRef<HTMLElement | null>(null)
+
+  function rememberOpener() {
+    const active = document.activeElement
+    openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null
+  }
 
   // Nächster (sonst vorheriger) Eintrag in der Ansicht, sonst null
   function neighbourOf(entryId: string): string | null {
@@ -51,7 +58,17 @@ export function useEntryActions({ onChanged, containerRef, fallbackRef, isVisibl
 
   // Wird beim Schliessen des Dialogs aufgerufen: gibt true zurück, wenn der Fokus hier gesetzt wurde
   function restoreAfterRemoval(event: Event): boolean {
-    if (focusAfterRemoval.current === undefined) return false
+    if (focusAfterRemoval.current === undefined) {
+      // Abgebrochen oder unverändert geschlossen: Fokus zurück zum auslösenden Knopf
+      const opener = openerRef.current
+      openerRef.current = null
+      if (opener?.isConnected) {
+        event.preventDefault()
+        opener.focus()
+        return true
+      }
+      return false
+    }
     const neighbourId = focusAfterRemoval.current
     focusAfterRemoval.current = undefined
     event.preventDefault()
@@ -123,8 +140,14 @@ export function useEntryActions({ onChanged, containerRef, fallbackRef, isVisibl
   )
 
   return {
-    onEdit: (entry: TimeEntry) => setEditing({ entry, open: true }),
-    onDelete: (entry: TimeEntry) => setDeleting({ entry, open: true }),
+    onEdit: (entry: TimeEntry) => {
+      rememberOpener()
+      setEditing({ entry, open: true })
+    },
+    onDelete: (entry: TimeEntry) => {
+      rememberOpener()
+      setDeleting({ entry, open: true })
+    },
     dialogs,
   }
 }

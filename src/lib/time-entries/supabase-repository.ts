@@ -178,20 +178,21 @@ export class SupabaseTimeEntriesRepository implements TimeEntriesRepository {
     const { from, to } = monthRange(filter.month)
     let query = this.client
       .from('time_entries')
-      .select(filter.customerId ? ENTRY_COLUMNS_INNER : ENTRY_COLUMNS)
+      .select(filter.customerId ? ENTRY_COLUMNS_INNER : ENTRY_COLUMNS, { count: 'exact' })
       .gte('entry_date', from)
       .lt('entry_date', to)
     if (filter.customerId) query = query.eq('project.customer_id', filter.customerId)
     if (filter.withoutDescription) query = query.is('description', null)
-    // Eine Zeile mehr holen, um «abgeschnitten» zu erkennen
-    const { data, error } = await query
+    // Die Datenbank liefert höchstens 1000 Zeilen pro Antwort (PostgREST max-rows), eine Zeile mehr
+    // anzufordern erkennt «abgeschnitten» daher nicht. Stattdessen die Gesamtzahl mitzählen lassen.
+    const { data, error, count } = await query
       .order('entry_date', { ascending: false })
       .order('created_at')
-      .limit(MONTH_ENTRY_LIMIT + 1)
+      .limit(MONTH_ENTRY_LIMIT)
     if (error) throw toError(error)
     const rows = data as unknown as EntryRow[]
-    const truncated = rows.length > MONTH_ENTRY_LIMIT
-    const entries = rows.slice(0, MONTH_ENTRY_LIMIT).map(toEntry).sort(byMonthOrder)
+    const truncated = (count ?? rows.length) > rows.length
+    const entries = rows.map(toEntry).sort(byMonthOrder)
     return { entries, truncated }
   }
 

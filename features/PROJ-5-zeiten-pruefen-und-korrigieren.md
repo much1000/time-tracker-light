@@ -324,13 +324,15 @@ Edge Case «Sehr viele Einträge (über 1000)»: **nicht bestanden** (BUG-1). Al
 - *Erwartet:* Hinweis «Es werden nicht alle Einträge angezeigt, bitte Filter nutzen», Summen als unvollständig benannt. *Ist:* kein Hinweis, Summen zählen nur 1000.
 - *Ursache:* Supabase (PostgREST) begrenzt jede Antwort auf 1000 Zeilen. Die Datenschicht fragt 1001 an, um «mehr als 1000» zu erkennen, bekommt aber nie mehr als 1000 und setzt «truncated» nie. Die Vitest-Tests mit nachgebautem Client sahen das nicht.
 - *Auswirkung:* Gering für diese Seite (über 1000 Einträge pro Monat sind für eine Einzelperson unrealistisch), aber **wichtig für PROJ-8 und PROJ-9**: Der CSV-Export «aller Zeiten» wird schnell über 1000 Zeilen haben und muss seitenweise laden (mehrere Abfragen), sonst fehlen Zeilen ohne Fehlermeldung.
-- *Lösungsrichtung (für `/backend`):* höchstens 1000 anfragen und die Gesamtzahl über den Zähler der Datenbank (`count: exact`) lesen, oder 999 als Obergrenze anfragen und über 1000 erkennen. Test: `tests/PROJ-5-zeiten-qa.spec.ts` («Edge: mehr als 1000 Einträge», derzeit als erwarteter Fehler markiert).
+- *Lösungsrichtung (für `/backend`):* höchstens 1000 anfragen und die Gesamtzahl über den Zähler der Datenbank (`count: exact`) lesen, oder 999 als Obergrenze anfragen und über 1000 erkennen. Test: `tests/PROJ-5-zeiten-qa.spec.ts` («Edge: mehr als 1000 Einträge»).
+- **BEHOBEN (2026-11-14):** `listMonth` in `supabase-repository.ts` fragt jetzt höchstens 1000 Zeilen an und liest die Gesamtzahl über `count: 'exact'`; «truncated» ist gesetzt, wenn die Gesamtzahl grösser ist als die gelieferten Zeilen. Vitest angepasst (Zähler im nachgebauten Client). Der E2E-Test mit 1001 echten Einträgen läuft ohne `test.fail` grün.
 
 **BUG-2 (Medium): Nach dem Schliessen von «Zeit bearbeiten» oder «Eintrag löschen?» ohne Änderung kehrt der Fokus nicht zum auslösenden Knopf zurück.**
 - *Schritte:* Mit Tab zu «Bearbeiten» (oder «Löschen») eines Eintrags gehen, mit Enter öffnen, mit Escape oder «Abbrechen» schliessen.
 - *Erwartet (Spec):* Fokus liegt wieder auf dem Knopf. *Ist:* Der Fokus fällt auf die Seite zurück, Tastatur- und Screenreader-Nutzer müssen von vorn beginnen.
 - *Ursache:* `useRestoreFocus` merkt sich den Auslöser nur beim Wechsel von «zu» auf «offen». Die Dialoge in `use-entry-actions.tsx` werden schon geöffnet eingehängt, der Wechsel findet nie statt. Betrifft nur Bearbeiten und Löschen (das Erfassen-Formular ist immer eingehängt und funktioniert).
 - *Lösungsrichtung (für `/frontend`):* Auslöser beim Öffnen selbst merken (`document.activeElement` in `onEdit`/`onDelete`) und beim Schliessen dorthin zurückgeben, oder die Dialoge immer eingehängt lassen. Test: «AC: Fokus kehrt nach Abbrechen, Escape und Speichern … zurück» (derzeit als erwarteter Fehler markiert). Der Fokus nach dem Löschen und nach dem Verschieben (Nachbar, sonst Überschrift) funktioniert.
+- **BEHOBEN (2026-11-14):** `use-entry-actions.tsx` merkt sich beim Öffnen (`onEdit`/`onDelete`) das fokussierte Element und gibt den Fokus beim Schliessen ohne Entfernen dorthin zurück (sofern es noch in der Seite ist); Nachbar-Logik nach Löschen/Verschieben unverändert. E2E-Test ohne `test.fail` grün.
 
 ### Beobachtungen (kein Fehler)
 - **Künstlicher Doppelklick:** Zwei programmatische Klicks im selben Takt (gleiche Millisekunde) senden «Speichern» und «Löschen» zweimal; ein echter Doppelklick nicht (getestet, genau eine Anfrage, der Knopf ist sofort deaktiviert). Mit Maus, Tastatur und Touch nicht erreichbar, keine Massnahme nötig.
@@ -339,7 +341,7 @@ Edge Case «Sehr viele Einträge (über 1000)»: **nicht bestanden** (BUG-1). Al
 
 ### Offen
 - **Skript im SQL-Editor ausführen** (`supabase/tests/PROJ-5-delete-rules.sql`, Anleitung siehe «Offen» in den Backend-Notizen): prüft fremden Nutzer, Besitzerwechsel, Verschieben auf archivierte Projekte. Betrifft 3 Kriterien (Löschen nur für den Besitzer, fremder Nutzer, fremdes Projekt). Ergebnis hier nachtragen.
-- **Entscheidung:** Welche Fehler vor dem Deploy behoben werden (Empfehlung: beide, jeweils klein).
+- **Entscheidung:** Beide Fehler werden vor dem Deploy behoben (beschlossen und umgesetzt am 2026-11-14). Danach: erneuter `/qa`-Lauf bzw. Regression und SQL-Skript.
 
 ### Produktionsreife
 **Bereit nach Entscheidung:** Keine kritischen oder hohen Fehler. Empfehlung: BUG-2 (Fokus, Zugänglichkeit laut Spec) und BUG-1 (Hinweis, Grundlage für PROJ-9) vor dem Deploy beheben, dazu das SQL-Skript ausführen.
