@@ -24,6 +24,8 @@ export interface TimeEntryFormValues {
   duration: string
   start: string
   end: string
+  // Ende 24:00 (Mitternacht): das Zeitfeld «Bis» gilt dann nicht
+  endMidnight?: boolean
   billable: string
   description: string
 }
@@ -35,11 +37,18 @@ export type ValidationResult =
   | { ok: true; input: TimeEntryInput }
   | { ok: false; errors: TimeEntryErrors }
 
+// Ende des Zeitraums in Minuten seit Mitternacht: 24:00 (1440) bei «Bis Mitternacht», sonst das Feld «Bis».
+export function rangeEnd(values: Pick<TimeEntryFormValues, 'end' | 'endMidnight'>): number | null {
+  return values.endMidnight === true ? 24 * 60 : parseTime(values.end)
+}
+
 // Gearbeitete Dauer in Minuten, soweit aus den Eingaben ableitbar (sonst null). Für Anzeige und Vorbelegung.
-export function workedMinutes(values: Pick<TimeEntryFormValues, 'mode' | 'duration' | 'start' | 'end'>) {
+export function workedMinutes(
+  values: Pick<TimeEntryFormValues, 'mode' | 'duration' | 'start' | 'end' | 'endMidnight'>
+) {
   if (values.mode === 'range') {
     const start = parseTime(values.start)
-    const end = parseTime(values.end)
+    const end = rangeEnd(values)
     if (start === null || end === null || end <= start) return null
     return end - start
   }
@@ -74,7 +83,7 @@ export function validateTimeEntry(
     else durationMinutes = parsed.minutes
   } else {
     const start = parseTime(values.start)
-    const end = parseTime(values.end)
+    const end = rangeEnd(values)
     if (start === null) {
       errors.start = values.start.trim() === '' ? 'Bitte gib eine Startzeit ein.' : 'Bitte gib eine gültige Uhrzeit ein, z. B. 08:30.'
     }

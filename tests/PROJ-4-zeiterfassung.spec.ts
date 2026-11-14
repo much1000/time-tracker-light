@@ -318,12 +318,15 @@ test.describe('mit Anmeldung', () => {
     const [created] = await ok.json()
     expect(created.owner_id).toBe(ownerId)
 
-    // Löschen ist nicht erlaubt
-    expect([401, 403]).toContain((await request.delete(`${rest}/time_entries?id=eq.${created.id}`, { headers })).status())
-
     // Besitzer ändern: wirkungslos
     const patch = await request.patch(`${rest}/time_entries?id=eq.${created.id}`, { headers, data: { owner_id: '17bb69ca-f2e7-4b05-9ee4-e08c3ac67263' } })
     if (patch.ok()) expect((await patch.json())[0]?.owner_id ?? ownerId).toBe(ownerId)
+
+    // Löschen: seit PROJ-5 darf der Besitzer eigene Einträge löschen (genau diesen einen, über seine Kennung).
+    // Die Regeln für fremde Nutzer und «anon» prüfen PROJ-5 (Datenbank-Tests und SQL-Skript).
+    const removed = await request.delete(`${rest}/time_entries?id=eq.${created.id}`, { headers })
+    expect(removed.status()).toBe(200)
+    expect((await removed.json()).map((row: { id: string }) => row.id)).toEqual([created.id])
 
     // Ungültige Werte direkt an die Datenbank: abgelehnt
     const bad: Record<string, unknown>[] = [

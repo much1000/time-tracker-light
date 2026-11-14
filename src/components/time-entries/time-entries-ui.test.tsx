@@ -80,7 +80,7 @@ describe('TodayView', () => {
     expect(screen.getAllByRole('button', { name: 'Zeit erfassen' }).length).toBeGreaterThan(0)
   })
 
-  it('zeigt die heutigen Einträge mit Tagessumme und ohne Bearbeiten oder Löschen', async () => {
+  it('zeigt die heutigen Einträge mit Tagessumme, Bearbeiten, Löschen und dem Link «Alle Zeiten»', async () => {
     await seedCustomerWithEntry({ durationMinutes: 150, billableMinutes: 90 })
     render(<TodayView />)
     const list = await screen.findByRole('list')
@@ -88,7 +88,11 @@ describe('TodayView', () => {
     expect(within(list).getByText('verrechenbar 1:30')).toBeInTheDocument()
     expect(within(list).getByText('Erster Eintrag')).toBeInTheDocument()
     expect(screen.getByText('Gearbeitet')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /löschen|bearbeiten/i })).not.toBeInTheDocument()
+    const day = todayInZurich().split('-')
+    const label = `Eintrag von ${day[2]}.${day[1]}., MUS · Allgemein, 2:30`
+    expect(screen.getByRole('button', { name: `${label} bearbeiten` })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: `${label} löschen` })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alle Zeiten' })).toHaveAttribute('href', '/zeiten')
   })
 
   it('zeigt bei einem Ladefehler eine Meldung mit «Erneut versuchen»', async () => {

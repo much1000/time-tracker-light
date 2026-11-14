@@ -23,6 +23,10 @@ interface ConfirmArchiveDialogProps {
   // Beschriftung des Bestätigen-Knopfs (Standard: Archivieren), auch für andere Rückfragen nutzbar
   confirmLabel?: string
   busyLabel?: string
+  // Roter Knopf für endgültiges Löschen (Design-System: Löschen in Fehlerfarbe)
+  destructive?: boolean
+  // Eigene Fokus-Rückgabe nach dem Schliessen: gibt true zurück, wenn sie den Fokus selbst setzt
+  onCloseFocus?: (event: Event) => boolean
 }
 
 // Rückfrage vor dem Archivieren. Archivieren ist umkehrbar und löscht nichts,
@@ -36,19 +40,30 @@ export function ConfirmArchiveDialog({
   onConfirm,
   confirmLabel = 'Archivieren',
   busyLabel = 'Wird archiviert …',
+  destructive = false,
+  onCloseFocus,
 }: ConfirmArchiveDialogProps) {
-  const restoreFocus = useRestoreFocus(open)
+  const restoreDefault = useRestoreFocus(open)
+  const restoreFocus = (event: Event) => {
+    if (onCloseFocus?.(event)) return
+    restoreDefault(event)
+  }
   return (
     <AlertDialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
       <AlertDialogContent onCloseAutoFocus={restoreFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogDescription className="break-words">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Abbrechen</AlertDialogCancel>
           {/* Kein AlertDialogAction: Der Dialog bleibt bis zum Ende der Anfrage offen. */}
-          <Button type="button" onClick={onConfirm} disabled={busy}>
+          <Button
+            type="button"
+            variant={destructive ? 'destructive' : 'default'}
+            onClick={onConfirm}
+            disabled={busy}
+          >
             {busy ? (
               <>
                 <LoaderCircle className="animate-spin" aria-hidden="true" />

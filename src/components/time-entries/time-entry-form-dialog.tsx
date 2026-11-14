@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useRepositoryData } from "@/hooks/use-repository-data";
@@ -41,7 +42,12 @@ import {
   parseTime,
 } from "@/lib/time-entries/duration";
 import {
+  entryToFormValues,
+  targetsWithCurrent,
+} from "@/lib/time-entries/form-values";
+import {
   findOverlaps,
+  rangeEnd,
   validateTimeEntry,
   workedMinutes,
   type TimeEntryFormValues,
@@ -57,25 +63,40 @@ interface TimeEntryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (entry: TimeEntry) => void;
+  // Bearbeiten-Modus: der Eintrag, dessen Werte vorbelegt werden (sonst: neuer Eintrag)
+  entry?: TimeEntry | null;
+  // Der Eintrag wurde inzwischen gelöscht (auf einem anderen Gerät): die Liste muss neu laden
+  onEntryGone?: () => void;
+  onCloseFocus?: (event: Event) => boolean;
 }
 
 export function TimeEntryFormDialog({
   open,
   onOpenChange,
   onSaved,
+  entry = null,
+  onEntryGone,
+  onCloseFocus,
 }: TimeEntryFormDialogProps) {
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Zeit erfassen"
-      description="Erfasse Arbeitszeit für heute oder trage sie nachträglich ein."
+      onCloseFocus={onCloseFocus}
+      title={entry ? "Zeit bearbeiten" : "Zeit erfassen"}
+      description={
+        entry
+          ? "Korrigiere Datum, Projekt, Dauer, Uhrzeiten oder Beschreibung."
+          : "Erfasse Arbeitszeit für heute oder trage sie nachträglich ein."
+      }
     >
       <FormLoader
+        entry={entry}
         onCancel={() => onOpenChange(false)}
-        onSaved={(entry) => {
+        onEntryGone={onEntryGone}
+        onSaved={(saved) => {
           onOpenChange(false);
-          onSaved(entry);
+          onSaved(saved);
         }}
       />
     </ResponsiveDialog>
@@ -89,20 +110,27 @@ interface FormData {
 
 // Lädt Kunden, Projekte und den zuletzt benutzten Eintrag, bevor das Formular erscheint.
 function FormLoader({
+  entry,
   onCancel,
   onSaved,
+  onEntryGone,
 }: {
+  entry: TimeEntry | null;
   onCancel: () => void;
   onSaved: (entry: TimeEntry) => void;
+  onEntryGone?: () => void;
 }) {
   const { state, retry } = useRepositoryData<FormData>(async () => {
     const repository = getTimeEntriesRepository();
     const [targets, last] = await Promise.all([
       repository.listTargets(),
-      repository.getLastTarget(),
+      entry ? Promise.resolve(null) : repository.getLastTarget(),
     ]);
-    return { targets, last };
-  }, "form");
+    return {
+      targets: entry ? targetsWithCurrent(targets, entry) : targets,
+      last,
+    };
+  }, `form-${entry?.id ?? "new"}`);
 
   if (state.status === "loading") {
     return (
@@ -142,8 +170,10 @@ function FormLoader({
     <TimeEntryForm
       targets={state.data.targets}
       last={state.data.last}
+      entry={entry}
       onCancel={onCancel}
       onSaved={onSaved}
+      onEntryGone={onEntryGone}
     />
   );
 }
@@ -171,20 +201,26 @@ function ErrorText({ id, message }: { id: string; message?: string }) {
 function TimeEntryForm({
   targets,
   last,
+  entry,
   onCancel,
   onSaved,
+  onEntryGone,
 }: {
   targets: BookableCustomer[];
   last: LastTarget | null;
+  entry: TimeEntry | null;
   onCancel: () => void;
   onSaved: (entry: TimeEntry) => void;
+  onEntryGone?: () => void;
 }) {
   const today = todayInZurich();
   const [failure, setFailure] = useState<string | null>(null);
   // Solange die verrechenbare Dauer nicht von Hand geändert wurde, folgt sie der gearbeiteten.
-  const [billableTouched, setBillableTouched] = useState(false);
+  // Beim Bearbeiten ist sie ein bewusster Wert und folgt nie automatisch.
+  const [billableTouched, setBillableTouched] = useState(entry !== null);
 
   const initial = useMemo(() => {
+    if (entry) return { customerId: entry.customerId, projectId: entry.projectId };
     const customer =
       last && targets.find((candidate) => candidate.id === last.customerId);
     const project = customer?.projects.find(
@@ -193,21 +229,24 @@ function TimeEntryForm({
     return customer && project
       ? { customerId: customer.id, projectId: project.id }
       : null;
-  }, [last, targets]);
+  }, [entry, last, targets]);
 
   const form = useForm<TimeEntryFormValues>({
     resolver,
-    defaultValues: {
-      customerId: initial?.customerId ?? "",
-      projectId: initial?.projectId ?? "",
-      date: today,
-      mode: "duration",
-      duration: "",
-      start: "",
-      end: "",
-      billable: "",
-      description: "",
-    },
+    defaultValues: entry
+      ? entryToFormValues(entry)
+      : {
+          customerId: initial?.customerId ?? "",
+          projectId: initial?.projectId ?? "",
+          date: today,
+          mode: "duration",
+          duration: "",
+          start: "",
+          end: "",
+          endMidnight: false,
+          billable: "",
+          description: "",
+        },
   });
   const { control, register, setValue, formState } = form;
   const busy = formState.isSubmitting;
@@ -262,10 +301,12 @@ function TimeEntryForm({
   const overlaps = useMemo(() => {
     if (values.mode !== "range" || dayState.status !== "ready") return [];
     const start = parseTime(values.start);
-    const end = parseTime(values.end);
+    const end = rangeEnd(values);
     if (start === null || end === null || end <= start) return [];
-    return findOverlaps(dayState.data, start, end);
-  }, [values.mode, values.start, values.end, dayState]);
+    // Der bearbeitete Eintrag überschneidet sich nicht mit sich selbst
+    const others = dayState.data.filter((other) => other.id !== entry?.id);
+    return findOverlaps(others, start, end);
+  }, [values, dayState, entry?.id]);
 
   async function onSubmit(raw: TimeEntryFormValues) {
     if (busy) return;
@@ -273,12 +314,19 @@ function TimeEntryForm({
     const result = validateTimeEntry(raw);
     if (!result.ok) return;
     try {
-      const saved = await getTimeEntriesRepository().createEntry(result.input);
+      const repository = getTimeEntriesRepository();
+      const saved = entry
+        ? await repository.updateEntry(entry.id, result.input)
+        : await repository.createEntry(result.input);
       onSaved(saved);
     } catch (error) {
       const message = describeTimeEntryError(error);
       if (error instanceof TimeEntryError && error.kind === "target-archived") {
         form.setError("projectId", { message });
+      } else if (error instanceof TimeEntryError && error.kind === "entry-not-found") {
+        // Auf einem anderen Gerät gelöscht: Eingaben bleiben, die Liste lädt neu
+        setFailure(message);
+        onEntryGone?.();
       } else {
         setFailure(message);
       }
@@ -320,7 +368,7 @@ function TimeEntryForm({
               <SelectTrigger
                 id="te-customer"
                 className="h-11"
-                autoFocus={!initial}
+                autoFocus={!initial && entry === null}
                 aria-invalid={Boolean(errors.customerId)}
                 aria-describedby={
                   errors.customerId ? "te-customer-error" : undefined
@@ -333,6 +381,7 @@ function TimeEntryForm({
                   <SelectItem key={target.id} value={target.id}>
                     <span className="font-mono">{target.code}</span> ·{" "}
                     {target.name}
+                    {target.archived ? " (archiviert)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -380,6 +429,7 @@ function TimeEntryForm({
                 {customer?.projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
+                    {project.archived ? " (archiviert)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -411,7 +461,7 @@ function TimeEntryForm({
               inputMode="text"
               placeholder="1:30"
               className="h-11"
-              autoFocus={Boolean(initial)}
+              autoFocus={Boolean(initial) && entry === null}
               aria-invalid={Boolean(errors.duration)}
               aria-describedby={
                 errors.duration ? "te-duration-error" : "te-duration-hint"
@@ -450,9 +500,22 @@ function TimeEntryForm({
                   className="h-11"
                   aria-invalid={Boolean(errors.end)}
                   aria-describedby={errors.end ? "te-end-error" : undefined}
+                  disabled={values.endMidnight === true}
                   {...register("end")}
                 />
               </div>
+            </div>
+            <div className="flex min-h-11 items-center gap-3">
+              <Switch
+                id="te-midnight"
+                checked={values.endMidnight === true}
+                onCheckedChange={(checked) =>
+                  setValue("endMidnight", checked, {
+                    shouldValidate: formState.isSubmitted,
+                  })
+                }
+              />
+              <Label htmlFor="te-midnight">Bis Mitternacht (24:00)</Label>
             </div>
             <ErrorText id="te-start-error" message={errors.start?.message} />
             <ErrorText id="te-end-error" message={errors.end?.message} />
@@ -507,6 +570,7 @@ function TimeEntryForm({
         <Textarea
           id="te-description"
           rows={3}
+          autoFocus={entry !== null && entry.description === null}
           aria-invalid={Boolean(errors.description)}
           aria-describedby={
             errors.description ? "te-description-error" : undefined

@@ -24,6 +24,9 @@ interface ResponsiveDialogProps {
   title: string
   description: string
   children: ReactNode
+  // Eigene Fokus-Rückgabe nach dem Schliessen: gibt true zurück, wenn sie den Fokus selbst setzt
+  // (zum Beispiel, wenn der auslösende Eintrag nicht mehr existiert).
+  onCloseFocus?: (event: Event) => boolean
 }
 
 // Formular-Rahmen: Dialog ab Tablet-Breite, Blatt von unten am Handy.
@@ -34,9 +37,14 @@ export function ResponsiveDialog({
   title,
   description,
   children,
+  onCloseFocus,
 }: ResponsiveDialogProps) {
   const isMobile = useIsMobile()
-  const restoreFocus = useRestoreFocus(open)
+  const restoreDefault = useRestoreFocus(open)
+  const restoreFocus = (event: Event) => {
+    if (onCloseFocus?.(event)) return
+    restoreDefault(event)
+  }
 
   if (isMobile) {
     return (

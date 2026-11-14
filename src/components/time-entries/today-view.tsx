@@ -1,11 +1,13 @@
 'use client'
 
 import { Clock, Plus } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/customers/load-states'
 import { EntryRow } from '@/components/time-entries/entry-row'
 import { TimeEntryFormDialog } from '@/components/time-entries/time-entry-form-dialog'
+import { useEntryActions } from '@/components/time-entries/use-entry-actions'
 import { useTimer } from '@/components/timer/timer-provider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,6 +28,14 @@ export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
     `${today}-${entriesVersion}`
   )
   const [creating, setCreating] = useState(false)
+  const listRef = useRef<HTMLElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const actions = useEntryActions({
+    onChanged: reload,
+    containerRef: listRef,
+    fallbackRef: headingRef,
+    isVisible: (entry) => entry.date === today,
+  })
 
   const entries = state.status === 'ready' ? state.data : []
   const sums = sumEntries(entries)
@@ -34,7 +44,9 @@ export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Heute</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
+            Heute
+          </h1>
           <p className="text-muted-foreground">{formatLongDate(today)}</p>
         </div>
         <Button type="button" onClick={() => setCreating(true)}>
@@ -72,7 +84,7 @@ export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
       )}
 
       {state.status === 'ready' && entries.length > 0 && (
-        <section aria-labelledby="today-entries" className="space-y-4">
+        <section ref={listRef} aria-labelledby="today-entries" className="space-y-4">
           <Card>
             <CardContent className="grid grid-cols-2 gap-4 p-4">
               <div>
@@ -90,9 +102,15 @@ export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
           </h2>
           <ul className="space-y-2">
             {entries.map((entry) => (
-              <EntryRow key={entry.id} entry={entry} />
+              <EntryRow key={entry.id} entry={entry} onEdit={actions.onEdit} onDelete={actions.onDelete} />
             ))}
           </ul>
+          <Link
+            href="/zeiten"
+            className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4"
+          >
+            Alle Zeiten
+          </Link>
         </section>
       )}
 
@@ -106,6 +124,7 @@ export function TodayView({ timerSection }: { timerSection?: ReactNode }) {
           reload()
         }}
       />
+      {actions.dialogs}
     </div>
   )
 }

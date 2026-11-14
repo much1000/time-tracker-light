@@ -257,7 +257,31 @@ Keine neuen. Vorhanden und genutzt: `react-hook-form`, `zod` (Formular), `@supab
 ### Offen
 - **Skript im SQL-Editor ausführen und Ergebnis prüfen:** `supabase/tests/PROJ-5-delete-rules.sql` (alles markieren, Run; es endet bewusst mit «RESULT …» und rollt alles zurück). Es prüft: zweiter Nutzer sieht, löscht und ändert nichts (auch ein Löschen ohne Bedingung trifft 0 Zeilen), Besitzer unverändert, Verschieben und Datumsregeln beim Ändern, Bearbeiten auf archiviertem Projekt, Löschen genau einer Zeile (zweites Mal 0), Eintrag bis 24:00 löschbar, Kunden, Projekte und Timer nicht löschbar, `anon` ohne Zugriff. Zeilen mit «(bad)» wären Fehler.
 - **Regression:** Gesamtlauf aller E2E-Tests (die Datenschicht von PROJ-4 wurde erweitert, nicht verändert).
-- **Frontend (`/frontend PROJ-5`):** Seite «Zeiten», Filterleiste, Formular im Bearbeiten-Modus mit Schalter «Bis Mitternacht», Löschen-Rückfrage, Aktionen unter «Heute».
+- ~~**Frontend (`/frontend PROJ-5`)**~~ erledigt, siehe «Implementation Notes (Frontend)».
+
+## Implementation Notes (Frontend)
+**Stand:** 2026-11-15. Die Oberfläche steht gegen die echte Datenschicht (keine Platzhalter). Status bleibt **In Progress**, bis `/qa` durch ist.
+
+### Neu
+- **Seite `/zeiten`** (`src/app/(app)/zeiten/page.tsx`, `src/components/time-entries/zeiten-view.tsx`): Monatsleiste («Vorheriger Monat», «Nächster Monat» nach dem aktuellen deaktiviert), Filter (Kunde inkl. archivierte mit «(archiviert)», Schalter «Nur ohne Beschreibung», «Filter zurücksetzen»), Monatssumme, Tagesgruppen (neueste zuerst, Tagessumme), Leerzustand, «Keine Einträge für diesen Filter», Lade- und Fehlerzustand, Hinweis bei mehr als 1000 Einträgen (Summen als unvollständig benannt). Monat, Kunde und «ohne Beschreibung» stehen in der Adresse (`?monat=2026-10&kunde=…&ohne-beschreibung=1`, `useSearchParams` hinter `Suspense`); ungültiger oder zukünftiger Monat führt zum aktuellen, ein ungültiger Kunde wird ignoriert. Daten eines anderen Monats oder Filters bleiben nie stehen (Ansichtsschlüssel, «lädt» statt alter Daten). Ein vom Timer gestoppter Eintrag lädt die Liste neu (`entriesVersion`).
+- **Navigation:** «Zeiten» (`/zeiten`, Symbol Kalender) zwischen Start und Kunden, Seitenleiste und Tab-Leiste übernehmen es (4 Einträge).
+- **Eintragszeile** (`entry-row.tsx`): Aktionen «Bearbeiten» und «Löschen» mit eindeutigen Namen («Eintrag von 13.11., MUS · Allgemein, 1:30 bearbeiten»), Markierung «Keine Beschreibung» mit Symbol und Text.
+- **`use-entry-actions.tsx`:** gemeinsame Logik für «Heute» und «Zeiten» (Bearbeiten-Dialog, Lösch-Rückfrage, Meldungen «Änderung gespeichert.», «Gespeichert am 05.10.2026.», «Eintrag gelöscht.», Fehler), Fokus nach dem Entfernen eines Eintrags zum nächsten (sonst vorherigen) Eintrag, sonst zur Überschrift.
+- **Lösch-Rückfrage:** `ConfirmArchiveDialog` um `destructive` (roter Knopf) und `onCloseFocus` erweitert; nennt Kunde, Projekt, Datum, Dauer und Beschreibung (gekürzt), warnt vor dem endgültigen Löschen, Fokus auf «Abbrechen», Knopf während der Anfrage deaktiviert. Ein schon gelöschter Eintrag meldet «Dieser Eintrag existiert nicht mehr» und lädt neu.
+- **Formular im Bearbeiten-Modus** (`time-entry-form-dialog.tsx`, `form-values.ts`): alle Felder vorbelegt, «Von–bis» bei vorhandenen Uhrzeiten, «Verrechenbar» folgt nicht automatisch, Überschneidungs-Hinweis ignoriert den eigenen Eintrag, archiviertes Projekt oder Kunde als aktueller Wert mit «(archiviert)», Speichern über `updateEntry`, bei «nicht mehr vorhanden» bleiben die Eingaben stehen und die Liste lädt neu. Der Fokus liegt bei einem Eintrag ohne Beschreibung im Feld Beschreibung.
+- **Schalter «Bis Mitternacht (24:00)»** (auch beim Erfassen): setzt das Ende auf 24:00, das Feld «Bis» ist dann deaktiviert; Einträge aus dem Timer bis 24:00 bleiben beim Bearbeiten unverändert (`endMidnight` in `validation.ts`, `rangeEnd`). Für heute ist 24:00 wie jede spätere Endzeit nicht erlaubt.
+- **Startseite «Heute»:** «Bearbeiten» und «Löschen» je Eintrag, Link «Alle Zeiten» unter der Liste.
+- `ResponsiveDialog`: optionales `onCloseFocus` (eigene Fokus-Rückgabe). `src/test/setup.ts`: `ResizeObserver` für Radix Switch in jsdom.
+
+### Tests
+- **Vitest:** 332 von 332 grün (neu: `form-values.test.ts`, `zeiten-ui.test.tsx` mit 14 Tests für Monat, Adresse, Filter, Leer-, Fehler- und Abschneide-Zustand, Bearbeiten inkl. 24:00 und «nicht mehr vorhanden», Löschen inkl. Abbrechen, Fehler und «nicht mehr vorhanden»; angepasst: Navigation und «Heute»). `tsc` sauber, Lint ohne Fehler, `next build` erfolgreich.
+- **Regression im Browser (Chrome, Produktionsbuild):** PROJ-11 (Navigation und Layout), PROJ-4 (Erfassen, Layout, Barrierefreiheit, Sicherheit), PROJ-3 (Kunden) und die Datenbank-Tests von PROJ-3 und PROJ-5 grün (111 Tests; ein PROJ-11-Test fiel einmal durch einen Absturz beim Browserstart aus und lief bei der Wiederholung grün). Der Gesamtlauf inklusive Timer-Tests steht noch aus (`/qa`).
+- **Angepasst:** Der alte PROJ-4-Sicherheitstest erwartete, dass Löschen auf Zeiteinträgen verboten ist; seit PROJ-5 darf der Besitzer genau seinen eigenen Eintrag löschen (der Test prüft das jetzt so).
+- **44-px-Ziel:** Der Schalter (shadcn Switch) war nur 24 px hoch und fiel im Layout-Test bei 320 px auf. `src/components/ui/switch.tsx` hat jetzt eine 44 px hohe Trefferfläche (transparenter Rand, der sichtbare Schalter bleibt gleich gross).
+- **E2E gegen die neue Oberfläche:** noch nicht geschrieben, folgt mit `/qa` (Layout bei 320 bis 1440 px, Tastatur, Kontrast, Fokus nach dem Löschen).
+
+### Abweichungen und Hinweise
+- Keine Abweichung von der Spec. Das Skript `supabase/tests/PROJ-5-delete-rules.sql` (fremder Nutzer, `anon`) ist weiterhin vom Nutzer im SQL-Editor auszuführen (siehe «Offen» oben).
 
 ## QA Test Results
 _To be added by /qa_

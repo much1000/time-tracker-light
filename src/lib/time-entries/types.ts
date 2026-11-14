@@ -33,6 +33,8 @@ export interface TimeEntryInput {
 export interface BookableProject {
   id: string
   name: string
+  // Nur beim Bearbeiten: das aktuelle Projekt eines Eintrags ist inzwischen archiviert
+  archived?: boolean
 }
 
 export interface BookableCustomer {
@@ -40,6 +42,8 @@ export interface BookableCustomer {
   code: string
   name: string
   projects: BookableProject[]
+  // Nur beim Bearbeiten: der Kunde des Eintrags ist inzwischen archiviert
+  archived?: boolean
 }
 
 export interface LastTarget {
