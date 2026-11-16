@@ -1,6 +1,6 @@
 # PROJ-7: Wochenübersicht
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -269,7 +269,102 @@ nur eigene Einträge). Die Zusammenfassung (Zellen, Summen) entsteht nur im Brow
 - Spec-Abweichung (Breakpoint 1024 px) bewerten.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-11-16
+**App:** Produktions-Build lokal (`next start`, Port 3100), Chrome (Playwright), 320 bis 1440 px
+**Tester:** QA Engineer (AI)
+
+### Automatisierte Tests
+- **Vitest:** 393 von 393 grün (neu: `week-timer-refresh.test.tsx`, prüft, dass die Woche neu lädt, wenn der «Einträge geändert»-Zähler des Timers steigt). `tsc` ohne Fehler, Lint nur die alte Warnung in `use-toast.ts`.
+- **Playwright (Chrome):** neue Datei `tests/PROJ-7-woche-qa.spec.ts` mit **48 Tests** (plus Vorbereitung), alle grün. Gesamtlauf aller Tests (Setup, Haupttests, Timer, Abmelden) **297 von 297 grün**, es gibt keine Regression in PROJ-1 bis PROJ-6.
+- Die Tests arbeiten in festen Wochen des Jahres 2014 (gleicher Kalender wie 2025, Sommer-/Winterzeit am selben Tag). Grund: Andere Testdateien legen im selben Konto Einträge im März 2025 an; ein erster Lauf mit 2025 zeigte, dass sich parallele Dateien sonst in die Quere kommen (Testproblem, kein Fehler der App).
+
+### Acceptance Criteria Status
+
+#### Navigation und Seitenschutz (4/4)
+- [x] Eintrag «Woche» zwischen Start und Zeiten in Seitenleiste und Tab-Leiste, auf `/woche` aktiv, Titel «Woche · Time Tracker Light»
+- [x] Tab-Leiste mit fünf Einträgen bei 320 und 375 px: jeder mindestens 44 × 44 px, Beschriftung nicht abgeschnitten, kein seitliches Scrollen
+- [x] Ohne Anmeldung führt `/woche` (auch mit Wochenadresse) zur Anmeldung, keine Daten sichtbar
+
+#### Wochennavigation (5/5)
+- [x] Aktuelle Woche nach Zürcher Uhr mit «KW n · Datumsbereich», Monats- und Jahresgrenzen mit beiden Monaten (KW 1 / KW 53 / KW 14 geprüft)
+- [x] Vorherige/Nächste Woche, «Nächste Woche» und «Diese Woche» in der aktuellen Woche deaktiviert; Blättern über den Jahreswechsel (KW 52 → KW 1 → KW 2)
+- [x] Adresse `?woche=…`, Neuladen und Zurück-Taste behalten die Woche; ungültige (`abc`, `2025-W54`, `W00`, `1999-W52`) und zukünftige Wochen führen zur aktuellen Woche
+- [x] Beim Wechsel keine Zahlen der alten Woche; Ladefehler mit «Erneut versuchen» stellt die Ansicht wieder her
+
+#### Raster (5/5)
+- [x] Zeilen je Kunde · Projekt nach Kürzel, dann Name; archivierte Kunden und Projekte mit «archiviert»; sieben Spalten «Mo 10.» bis «So 16.»
+- [x] Zellen als h:mm bzw. «–», leere Zellen sind keine Knöpfe; Zeilen-, Tages- und Wochensummen (gearbeitet und verrechenbar) minutengenau (7:40 / 7:10 im Testdatensatz), Einträge der Nachbarwochen erscheinen nicht
+- [x] Heutiger Tag mit Text «Heute» markiert (nur in der aktuellen Woche)
+- [x] Leerzustand mit Erklärung und «Zeit erfassen» (öffnet das Formular), Navigation bleibt bedienbar
+
+#### Tageskarten (3/3)
+- [x] Wochensummen oben, sieben Karten Mo–So mit Datum und Tagessumme; Tage ohne Einträge kompakt mit «–»; Raster im Zugänglichkeitsbaum nicht vorhanden
+- [x] Projektzeile antippen öffnet das Blatt von unten mit Titel, Summe und allen Einträgen; Fokus kehrt zur Zeile zurück
+
+#### Detail (7/7)
+- [x] Titel «Kürzel · Projekt, Wochentag, Datum», Summe, Einträge mit Beschreibung, Uhrzeiten (auch 22:00–24:00), verrechenbarer Dauer, «Keine Beschreibung», Zeilenumbrüche erhalten, sehr lange Beschreibung aufklappbar ohne seitlichen Überlauf
+- [x] Schliessen mit Escape, Schliessen-Knopf und Klick daneben gibt den Fokus an die Zelle zurück; Öffnen mit Enter und Leertaste; Fokus bleibt im Detail gefangen
+- [x] Bearbeiten (Formular aus PROJ-5): Detail, Raster und Summen aktualisieren sich ohne Neuladen, Fokus bleibt im Detail
+- [x] Verschieben auf ein Datum in einer anderen Woche: Eintrag verschwindet, Hinweis «Gespeichert am 04.04.2014.», Detail schliesst bei leerer Zelle, Fokus auf der Überschrift
+- [x] Löschen: Rückfrage mit Angaben, Fokus auf «Abbrechen», Escape lässt alles unverändert (Fokus zurück am Löschen-Knopf im Detail); Bestätigen löscht genau einmal (auch bei Doppelklick); letzter Eintrag der Zelle schliesst das Detail, bei einem von zwei Einträgen bleibt es offen und der Fokus liegt beim Nachbar-Eintrag
+- [x] Auf einem anderen Gerät gelöscht: «existiert nicht mehr» beim Löschen und beim Speichern, Woche lädt neu
+
+#### Aktualität (2/2)
+- [x] «Zeit erfassen» auf der Seite: neuer Eintrag erscheint ohne Neuladen; Timer-Zähler lädt neu (Vitest, siehe oben)
+- [x] Wechsel zu «Zeiten» und zurück zeigt aktuelle Zahlen
+
+#### Zahlen und Zeit (3/3)
+- [x] Einträge bis 24:00 zählen zu ihrem Datum (Mittwoch)
+- [x] Wochen mit Sommer- (30.3.) und Winterzeitwechsel (26.10.) und Jahreswechsel legen Einträge in die richtigen Spalten
+- [x] Zeilensumme stimmt minutengenau mit der Summe der Einträge in der Datenbank überein, keine Rundung
+
+#### Bedienung, Darstellung, Zugänglichkeit (4/4)
+- [x] Layout bei 320, 375, 768, 1023, 1024 und 1440 px: kein seitliches Scrollen, alle Bedienelemente (Seite, Detail, Rückfrage, Leerzustand) mindestens 44 × 44 px, auch bei sehr langem Kundennamen ohne Leerzeichen; Raster ab 1024 px, darunter Tageskarten
+- [x] Raster als Tabelle mit Spaltenköpfen (Tage), Zeilenköpfen (Projekte) und Tabellenüberschrift; Zellennamen wie «Kunde Projekt, Montag, 10. März 2014, 2 Stunden»
+- [x] axe (WCAG 2.1 AA) ohne Verstösse in Hell und Dunkel, bei 375 und 1280 px: Woche, Detail, Formular über dem Detail, Rückfrage über dem Detail, Leerzustand
+- [x] Deutsche Tagesnamen («Montag, 10. März 2014», «Mo 10.»)
+
+**Kriterien gesamt: 28 von 28 bestanden (in Chrome).**
+
+### Edge Cases Status
+- [x] Woche über Monats- und Jahresgrenze: richtige KW und Spalten
+- [x] Mehrere Einträge pro Projekt und Tag: Zelle summiert, Detail einzeln
+- [x] Projekt nur an einem Tag: Zeile mit «–» an den übrigen Tagen
+- [x] Archivierter Kunde/archiviertes Projekt: erscheint mit Hinweis, Bearbeiten und Löschen bleiben möglich
+- [x] Eintrag auf anderes Projekt/andere Woche verschoben: Zelle, Zeile, Summen und Detail aktualisieren sich
+- [x] Sehr langer Kundenname: Umbruch, kein Überlauf (320 bis 1440 px)
+- [x] 20 Projekte in einer Woche: Raster wird länger, kein seitliches Scrollen (375 und 1280 px)
+- [x] Mehr als 1000 Einträge (1001 eingefügt): sichtbarer Hinweis «Zahlen unvollständig», nicht still falsch
+- [x] Laden schlägt fehl, Sitzung abgelaufen beim Speichern, Netzwerkfehler beim Löschen: Meldung, Eingaben und Daten bleiben
+- [x] Letzter Eintrag der Woche gelöscht: Leerzustand, Fokus auf der Überschrift
+- [x] Zukünftige Woche per Adresse: Umleitung auf die aktuelle Woche
+
+### Security Audit Results
+- [x] Authentifizierung: `/woche` und `/woche?woche=…` ohne Anmeldung führen zur Anmeldung, keine Daten
+- [x] Autorisierung: Zugriff nur mit dem öffentlichen Schlüssel (ohne Sitzung) liefert 401/403 für Lesen (auch mit den neuen Archiv-Feldern) und Löschen; Eintrag bleibt bestehen. Keine neue Tabelle, keine neuen Zugriffsregeln.
+- [x] Eingabe: HTML, Skripte und SQL-Zeichen in der Beschreibung erscheinen im Detail als Text, kein `img`, kein `alert`, keine Konsolenfehler
+- [x] Geheimnisse: kein Service-Role-Schlüssel und kein Token in der Seite
+- [x] Rate Limiting: nicht Teil dieser Funktion (reine Leseansicht, Löschen/Speichern nutzen die Mechanismen aus PROJ-5); Doppelklick auf «Löschen» sendet nur eine Anfrage
+
+### Bugs Found
+**Keine Critical-, High-, Medium- oder Low-Fehler gefunden.**
+
+Beobachtungen (keine Fehler):
+- **OBS-1 (Spec-Abweichung, bewusst):** Das Raster erscheint ab 1024 px statt ab ca. 768 px (Begründung siehe Implementation Notes: Seitenleiste 256 px, Inhalt nur 450–700 px breit). Bei 768 px sehen Tablet-Nutzer die Tageskarten. Funktional vollständig, Layout bei 768 und 1023 px geprüft. Entscheidung beim Nutzer, ob akzeptiert.
+- **OBS-2:** Beschreibungen über 160 Zeichen sind im Detail zunächst gekürzt und lassen sich mit «Mehr anzeigen» vollständig lesen (Verhalten aus PROJ-5, wiederverwendet; erfüllt «vollständig lesbar»).
+- **OBS-3:** Die drei offenen Fragen der Spec (laufender Timer zählt nicht mit, kein Zeichen bei verrechenbar ≠ gearbeitet, Zeilenreihenfolge nach Kürzel) sind unverändert so umgesetzt wie vorgeschlagen.
+
+### Nicht geprüft (Einschränkungen)
+- **Firefox und Safari:** nicht getestet. Auf diesem Rechner ist nur Chromium installiert, die Installation von Firefox scheiterte an einer hängengebliebenen Sperrdatei von Playwright (`ms-playwright\__dirlock`). Die Konfiguration enthält ein Projekt «Mobile Safari» und optional Firefox (`PW_FIREFOX=1`); sie lassen sich nach `npx playwright install` ausführen. Die Seite nutzt nur Standard-Bausteine (shadcn/ui, Radix) wie PROJ-5.
+- **Echter Timer-Stopp im Browser:** Ein Timer unter einer Minute wird nicht gespeichert, ein Test bräuchte über 60 Sekunden und den einzigen Timer des Kontos; stattdessen deckt der Vitest-Test den Neuladen-Mechanismus ab, und «Zeit erfassen» und das Zurückkehren sind im Browser getestet.
+
+### Summary
+- **Acceptance Criteria:** 28/28 bestanden (Chrome)
+- **Bugs Found:** 0
+- **Security:** keine Probleme
+- **Production Ready:** JA (Firefox/Safari vor oder nach dem Deploy bei Gelegenheit prüfen)
+- **Empfehlung:** Deploy
 
 ## Deployment
 _To be added by /deploy_
