@@ -1,6 +1,6 @@
 # PROJ-7: Wochenübersicht
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -129,13 +129,105 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _Wird bei /architecture ergänzt_ | | |
+| Keine Datenbank-Änderung, keine neue Tabelle, kein Server-Code | Reine Ansicht auf vorhandene Einträge; bestehende Zugriffsregeln (nur eigene Daten) genügen | 2026-11-16 |
+| Summen im Browser aus den Einträgen der Woche berechnen | Eine Abfrage, Raster, Tageskarten, Detail und «Zeiten» können nicht auseinanderlaufen; Rechenlogik als eigene, getestete Funktion | 2026-11-16 |
+| Neue Abfrage «Einträge einer Woche» statt Monatsabfrage | Eine Woche kann über zwei Monate gehen; teilt sich Technik und Obergrenze/Zähler mit der Monatsabfrage (Lehre aus BUG-1: Datenbank liefert höchstens 1000 Zeilen) | 2026-11-16 |
+| Wochenlogik in eigener Datei, reine Kalenderdaten statt Uhrzeiten | Wie bei Monaten; Sommer-/Winterzeit und Jahreswechsel können nichts verschieben; ISO-Kalenderwoche | 2026-11-16 |
+| Archiv-Hinweise (Kunde/Projekt archiviert) mit den Einträgen mitliefern | Daten liegen schon in der Datenbank; vermeidet viele Einzelabfragen pro Kunde | 2026-11-16 |
+| Adresse als Zustand: `/woche?woche=2026-W46` | Wie `?monat=`: Link, Zurück-Knopf und Neuladen behalten die Woche | 2026-11-16 |
+| Raster als semantische Tabelle (shadcn/ui «Table»), am Handy Tageskarten, nur eine Darstellung je Breite erreichbar | Screenreader lesen Tabellen richtig; zweidimensionales Scrollen am Handy vermeiden | 2026-11-16 |
+| Detail merkt sich nur die Zelle und liest die Einträge aus der geladenen Woche | Nach jeder Änderung stimmen Detail, Raster und Summen; Detail schliesst sich bei leerer Zelle | 2026-11-16 |
+| Bearbeiten/Löschen unverändert aus PROJ-5 (verschachtelte Dialoge über dem Detail) | Keine zweite Umsetzung derselben Regeln; Fokus-Rückgabe besonders testen (BUG-2-Erfahrung) | 2026-11-16 |
+| Keine neuen Pakete | Vorhandene shadcn/ui-Bausteine und Standard-Datumsfunktionen genügen | 2026-11-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Die Wochenübersicht ist eine **reine Ansicht auf bestehende Zeiteinträge**. Es entstehen keine neue Tabelle, keine neuen Zugriffsregeln und keine Datenbank-Änderung. Neu ist die Seite `/woche`, eine Wochenlogik (welche Tage gehören zur Woche) und eine Abfrage «alle Einträge von Montag bis Sonntag». Alles andere (Eintragszeile, Bearbeiten, Löschen, Dialog/Blatt, Ladezustände, Fokus-Rückgabe) wird aus PROJ-4/PROJ-5 wiederverwendet. **Backend-Aufwand: klein**, nur in der Datenschicht (Abfrage), kein SQL.
+
+### A) Komponentenstruktur
+```
+Seite /woche (geschützt, Titel «Woche · Time Tracker Light»)
++-- Kopfzeile: Überschrift «Woche» + Knopf «Zeit erfassen» (Formular wie auf «Zeiten»)
++-- Wochenleiste
+|   +-- Pfeil «Vorherige Woche»
+|   +-- Überschrift «KW 46 · 9.–15. Nov. 2026» (kündigt Wechsel an)
+|   +-- Pfeil «Nächste Woche» (in der aktuellen Woche gesperrt)
+|   +-- Knopf «Diese Woche»
++-- Wochensummen (gearbeitet · verrechenbar)
++-- Hinweis «Zahlen unvollständig» (nur bei mehr als 1000 Einträgen)
++-- Zustände: Laden (Platzhalter) / Fehler mit «Erneut versuchen» / Leerzustand mit «Zeit erfassen»
++-- Raster (ab ca. 768 px, als echte Tabelle)
+|   +-- Kopfzeile: Projekt | Mo 9. | Di 10. | … | So 15. | Summe   (heutiger Tag mit «Heute» markiert)
+|   +-- eine Zeile je Kunde · Projekt (Kürzel, Name, «archiviert»-Hinweis)
+|   |   +-- 7 Zellen: «1:30» als Knopf (mit Einträgen) oder «–» (leer, nicht klickbar)
+|   |   +-- Zeilensumme (gearbeitet, verrechenbar)
+|   +-- Fusszeile: Tagessummen (gearbeitet, verrechenbar) + Wochensumme gesamt
++-- Tageskarten (unter ca. 768 px)
+|   +-- eine Karte je Tag Mo–So: Wochentag, Datum, Tagessumme
+|       +-- eine Zeile je Projekt (Knopf, öffnet das Detail) oder «–»
++-- Detail (Dialog am Laptop, Blatt von unten am Handy; schon vorhanden: ResponsiveDialog)
+    +-- Titel «Kürzel · Projekt, Wochentag, Datum», Summe der Zelle
+    +-- Einträge der Zelle (vorhandene Eintragszeile mit Bearbeiten und Löschen)
+    +-- (öffnet bei Bedarf die bestehenden Dialoge «Zeit bearbeiten» und «Eintrag löschen?»)
+```
+Raster und Tageskarten zeigen **dieselben Daten**. Nur eine der beiden Darstellungen ist je Bildschirmbreite sichtbar (die andere ist für Screenreader und Tastatur ausgeblendet), die Umschaltung geschieht ohne Flackern beim Laden.
+
+### B) Datenmodell (in Alltagssprache)
+**Es werden keine neuen Daten gespeichert.** Die Wochenübersicht liest die vorhandenen Zeiteinträge (PROJ-4) und rechnet daraus:
+
+```
+Eine Woche hat:
+- Kennung (Jahr und Kalenderwoche, z. B. «2026-W46»), Montag bis Sonntag nach Zürcher Datum
+- 7 Tage (Datum, Wochentag), jeder mit Tagessumme (gearbeitet, verrechenbar)
+- Zeilen: je Kunde · Projekt mit Einträgen in dieser Woche
+    - Kürzel, Kundenname, Projektname, Hinweis «archiviert»
+    - je Tag: Zelle mit Summe (gearbeitet, verrechenbar) und den zugehörigen Einträgen
+    - Wochensumme der Zeile (gearbeitet, verrechenbar)
+- Wochensumme gesamt (gearbeitet, verrechenbar)
+
+Ein Eintrag (bekannt aus PROJ-4) hat: Datum, Projekt, Dauer, verrechenbare Dauer,
+optionale Uhrzeiten, optionale Beschreibung. Neu mitgeliefert für diese Ansicht:
+«Kunde archiviert?» und «Projekt archiviert?» (liegen schon in der Datenbank).
+
+Gespeichert in: Supabase (bestehende Tabelle der Zeiteinträge, bestehende Zugriffsregeln:
+nur eigene Einträge). Die Zusammenfassung (Zellen, Summen) entsteht nur im Browser aus den Einträgen.
+```
+
+### C) Technische Entscheidungen (begründet)
+- **Keine neue Datenbank-Struktur, kein neuer Server-Code.** Die Seite spricht wie «Zeiten» direkt über die bestehende Datenschicht mit Supabase; die vorhandenen Zugriffsregeln schützen die Daten. Das hält das Projekt kostenlos und einfach (Supabase Free, Vercel Hobby).
+- **Summen im Browser berechnen statt in der Datenbank.** Eine Woche hat realistisch höchstens ein paar Dutzend Einträge. Eine einzige Abfrage genügt, die Summen von Raster, Tageskarten, Detail und der Seite «Zeiten» stammen aus denselben Einträgen und können deshalb nicht auseinanderlaufen (Erfolgskriterium 4 aus dem PRD: Auswertung bleibt nach Korrekturen richtig). Die Rechenlogik steht als eigene, einzeln testbare Funktion getrennt von der Oberfläche.
+- **Eine Abfrage «Einträge von Datum bis Datum» für die Woche.** Eine Woche kann über zwei Monate gehen (29. Dez. bis 4. Jan.), die Monatsabfrage von PROJ-5 reicht daher nicht. Die Wochenabfrage nutzt dieselbe Technik (Zeitraum, Sortierung, Zähler für «mehr als 1000») und teilt sich den Code mit der Monatsabfrage, statt ihn zu kopieren. Aus der Erfahrung mit BUG-1 (Datenbank liefert höchstens 1000 Zeilen) zählt sie die Gesamtzahl mit und zeigt bei Überschreitung den Hinweis «Zahlen unvollständig».
+- **Wochenlogik als eigene kleine Bibliothek (wie `month.ts` für Monate):** Kennung «2026-W46» prüfen, aktuelle Woche nach Zürcher Uhr, vor- und zurückblättern, Montag/Sonntag, Kalenderwoche nach ISO, Beschriftung «KW 46 · 9.–15. Nov. 2026». Alle Daten werden als reine Kalenderdaten («2026-11-09») gerechnet, nie als Uhrzeit mit Zeitzone, damit Sommer-/Winterzeit und Jahreswechsel nicht stören.
+- **Adresse als Zustand (`/woche?woche=2026-W46`):** wie `?monat=` auf «Zeiten»: Link teilbar, Zurück-Knopf des Browsers funktioniert, Neuladen behält die Woche; ungültige oder zukünftige Woche führt zur aktuellen.
+- **Raster als echte Tabelle, am Handy Tageskarten mit denselben Daten.** Eine semantische Tabelle (Spaltenköpfe, Zeilenköpfe) wird von Screenreadern richtig vorgelesen (Spec: Barrierefreiheit). Das bestehende Tabellen-Bauteil (shadcn/ui «Table») wird verwendet. Zwei Darstellungen über Bildschirmbreite statt eines scrollbaren Rasters, weil Scrollen in zwei Richtungen am Handy mühsam ist (Produktentscheidung).
+- **Detail zeigt Daten aus der geladenen Woche, nicht eine Kopie.** Das Detail merkt sich nur «welche Zelle» (Projekt und Tag) und holt die Einträge aus der aktuell geladenen Woche. Nach Bearbeiten, Löschen, Timer-Stopp oder «Zeit erfassen» lädt die Woche neu, und Detail, Raster und Summen stimmen sofort wieder; wird die Zelle leer, schliesst sich das Detail. So gibt es keine veralteten Zahlen.
+- **Bearbeiten und Löschen unverändert aus PROJ-5** (gleiche Dialoge, gleiche Regeln, gleiche Hinweise, gleiche Fokus-Rückgabe). Die Dialoge «Zeit bearbeiten» und «Eintrag löschen?» öffnen sich über dem Detail (verschachtelte Dialoge); beim Schliessen kehrt der Fokus zuerst ins Detail und beim Schliessen des Details zur Zelle zurück. Dieses Zusammenspiel ist der heikelste Punkt der Oberfläche und wird besonders getestet.
+- **Aktualisierung bei Änderungen an anderer Stelle:** wie «Heute» und «Zeiten» reagiert die Seite auf den vorhandenen «Einträge geändert»-Zähler des Timers (Timer stoppen, Zeit erfassen); beim Zurückkehren auf die Seite wird frisch geladen.
+- **Navigation: ein Eintrag mehr in der zentralen Liste** (Start, Woche, Zeiten, Kunden, Status). Seitenleiste und Tab-Leiste lesen dieselbe Liste; die Tab-Leiste ist für höchstens fünf Einträge gebaut, jeder Eintrag hat bei 320 px rund 64 px Breite (Vorgabe: mindestens 44 px).
+- **Bewusst nicht gebaut:** Rundung (PROJ-8), Filter, Erfassen aus leerer Zelle, laufender Timer in der Summe.
+
+### D) Neue Datenschicht-Bausteine (ohne Code)
+- **Wochenlogik** (neue Datei neben der Monatslogik) mit Tests: Grenzfälle Jahreswechsel (KW 1 / KW 52/53), Sommer-/Winterzeit-Wochen, ungültige oder zukünftige Wochen.
+- **Wochenzusammenfassung** (reine Funktion): Einträge → Zeilen je Projekt, Zellen je Tag, Tages-, Zeilen- und Wochensummen, mit Tests (mehrere Einträge pro Zelle, 24:00, archivierte Projekte, leere Woche, Summen stimmen mit der Summe der Einträge überein).
+- **Neue Methode «Einträge einer Woche»** in der Schnittstelle der Zeiteinträge: Implementierung für Supabase und für die Tests im Speicher; liefert zusätzlich die Archiv-Hinweise (Kunde/Projekt archiviert).
+- **Gemeinsame Anzeige-Bausteine:** Die Summenzeile «X gearbeitet · Y verrechenbar» und die Tagesbeschriftung gibt es schon auf «Zeiten»; sie werden in einen gemeinsamen Baustein verschoben, damit beide Seiten gleich aussehen.
+
+### E) Abhängigkeiten (Pakete)
+**Keine neuen Pakete.** Verwendet werden das vorhandene shadcn/ui «Table», «Button», «Card», «Alert», «Badge», «Skeleton», Dialog/Sheet (über den vorhandenen ResponsiveDialog) sowie die vorhandenen Symbole (lucide-react). Eine Kalender- oder Datumsbibliothek ist nicht nötig, weil die Wochenlogik nur Kalenderdaten braucht.
+
+### F) Reihenfolge der Umsetzung (Hinweis für /backend und /frontend)
+1. **/backend (klein):** Wochenlogik, Wochenzusammenfassung, Abfrage «Einträge einer Woche» (Supabase und im Speicher) samt Tests. Keine Datenbank-Änderung.
+2. **/frontend:** Navigation «Woche», Seite `/woche`, Wochenleiste, Raster, Tageskarten, Detail, Ladezustände, Barrierefreiheit, Tests.
+3. **/qa:** Kriterien, Randfälle (Jahreswechsel, verschachtelte Dialoge, über 1000 Einträge), Layout 320–1440 px, axe, Regression von «Zeiten» und «Start».
+
+### G) Risiken
+- **Verschachtelte Dialoge (Detail → Bearbeiten/Löschen) und Fokus:** BUG-2 in PROJ-5 hat gezeigt, dass Fokus-Rückgabe leicht verloren geht. Wird früh im Browser getestet.
+- **Doppelte Darstellung (Raster und Tageskarten) im Seitenbaum:** Tests und Barrierefreiheitsprüfung müssen sicherstellen, dass nur die sichtbare Darstellung für Screenreader und Tastatur erreichbar ist.
+- **Zeilen mit sehr langen Namen:** Raster darf nicht seitlich überlaufen (Umbruch statt Abschneiden).
 
 ## QA Test Results
 _To be added by /qa_
