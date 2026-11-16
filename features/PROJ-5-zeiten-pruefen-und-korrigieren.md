@@ -1,6 +1,6 @@
 # PROJ-5: Zeiten prüfen und korrigieren
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-14
 **Last Updated:** 2026-11-14
 
@@ -340,11 +340,11 @@ Edge Case «Sehr viele Einträge (über 1000)»: **nicht bestanden** (BUG-1). Al
 - **Browser:** Firefox und Safari ungetestet.
 
 ### Offen
-- **Skript im SQL-Editor ausführen** (`supabase/tests/PROJ-5-delete-rules.sql`, Anleitung siehe «Offen» in den Backend-Notizen): prüft fremden Nutzer, Besitzerwechsel, Verschieben auf archivierte Projekte. Betrifft 3 Kriterien (Löschen nur für den Besitzer, fremder Nutzer, fremdes Projekt). Ergebnis hier nachtragen.
+- **SQL-Skript ausgeführt (2026-11-16, `supabase/tests/PROJ-5-delete-rules.sql`): bestanden.** Alle Zeilen ok, kein «(bad)»: fremder Nutzer kann gezielt nichts löschen (0 Zeilen) und nichts ändern, Einträge des Besitzers bleiben unverändert (3 von 3), Besitzerwechsel wirkungslos, Zukunftsdatum und verrechenbar > Dauer abgelehnt, Bearbeiten auf archiviertem Projekt ok, Verschieben auf archiviertes Projekt abgelehnt, Löschen genau eine Zeile (zweites Mal 0), 24:00-Eintrag löschbar, Löschen von Projekten, Kunden und Timern sowie anonymer Zugriff verweigert. Hinweis: Die Zeilen «u2 sieht Eintraege=55» und «u2 delete ohne Bedingung rows=55» weichen von der Erwartung 0 ab, weil u2 das echte Konto mit 55 eigenen Einträgen ist (Annahme im Skript falsch, kein Fehler der Datenbank); die Transaktion wurde zurückgerollt, alle 55 Einträge sind unverändert vorhanden.
 - **Entscheidung:** Beide Fehler werden vor dem Deploy behoben (beschlossen und umgesetzt am 2026-11-14). Danach: erneuter `/qa`-Lauf bzw. Regression und SQL-Skript.
 
 ### Produktionsreife
-**Bereit nach Entscheidung:** Keine kritischen oder hohen Fehler. Empfehlung: BUG-2 (Fokus, Zugänglichkeit laut Spec) und BUG-1 (Hinweis, Grundlage für PROJ-9) vor dem Deploy beheben, dazu das SQL-Skript ausführen.
+**BEREIT (JA):** Keine kritischen oder hohen Fehler, BUG-1 und BUG-2 behoben und nachgetestet (Vitest 332, Browser 249 grün), SQL-Skript bestanden. Alle 39 Kriterien erfüllt. Status: Approved.
 
 ## Deployment
 _To be added by /deploy_
