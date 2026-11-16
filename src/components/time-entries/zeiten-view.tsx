@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/customers/load-states'
 import { EntryRow } from '@/components/time-entries/entry-row'
+import { Sums } from '@/components/time-entries/sums'
 import { TimeEntryFormDialog } from '@/components/time-entries/time-entry-form-dialog'
 import { useEntryActions } from '@/components/time-entries/use-entry-actions'
 import { useTimer } from '@/components/timer/timer-provider'
@@ -46,14 +47,6 @@ function groupByDay(entries: TimeEntry[]): DayGroup[] {
 interface LoadedMonth extends MonthEntries {
   // Ansicht, zu der die Daten gehören (verhindert, dass Daten eines anderen Monats stehen bleiben)
   viewKey: string
-}
-
-function Sums({ worked, billable }: { worked: number; billable: number }) {
-  return (
-    <span className="tabular-nums">
-      {formatDuration(worked)} gearbeitet · {formatDuration(billable)} verrechenbar
-    </span>
-  )
 }
 
 // Seite «Zeiten»: Einträge eines Monats prüfen, filtern, korrigieren und löschen (PROJ-5).

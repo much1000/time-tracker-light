@@ -243,6 +243,31 @@ nur eigene Einträge). Die Zusammenfassung (Zellen, Summen) entsteht nur im Brow
 - Navigation «Woche» (`src/lib/navigation.ts`), Seite `/woche`, Wochenleiste, Raster (Tabelle), Tageskarten, Detail, Ladezustände. Die Bausteine `weekRange`, `buildWeekSummary`, `findCell`, `rowsOfDay`, `formatWeekLabel`, `formatDayShort` und `repository.listWeek` stehen bereit.
 - Gemeinsame Summenzeile «X gearbeitet · Y verrechenbar» aus `zeiten-view.tsx` in einen gemeinsamen Baustein verschieben.
 
+## Implementation Notes (Frontend)
+**Umgesetzt am 2026-11-16.** Neue Seite `/woche` (Titel «Woche · Time Tracker Light», geschützt wie alle Seiten der App) und Navigationseintrag «Woche» (Reihenfolge Start, Woche, Zeiten, Kunden, Status; Seitenleiste und Tab-Leiste lesen dieselbe Liste in `src/lib/navigation.ts`).
+
+**Neue Dateien** (`src/components/time-entries/`, Seite unter `src/app/(app)/woche/page.tsx`):
+- `week-view.tsx`: die Seite (Überschrift, «Zeit erfassen», Wochenleiste mit «Vorherige Woche», `h2` mit `aria-live`, «Diese Woche», «Nächste Woche»; Wochensummen; Lade-, Fehler- («Erneut versuchen»), Leer- und Hinweiszustand «Zahlen unvollständig»; Daten über `repository.listWeek`, Woche in der Adresse `?woche=2026-W46`, Neuladen bei Änderungen über den «Einträge geändert»-Zähler des Timers).
+- `week-grid.tsx`: Raster als echte Tabelle (shadcn/ui `Table`) mit Zeilenköpfen (Projekt), Spaltenköpfen (Tage, heutiger Tag mit Text «Heute»), Zellen als Knöpfe (leere Zellen «–» mit Text «Keine Einträge» für Screenreader), Zeilensumme (gearbeitet und verrechenbar, beschriftet) und Fusszeile mit den beiden Zeilen «Gearbeitet» und «Verrechenbar» (Tages- und Wochensumme).
+- `week-day-cards.tsx`: Tageskarten Montag bis Sonntag mit Tagessumme, je Projekt ein Knopf; Tage ohne Einträge «–».
+- `week-cell-dialog.tsx`: Detail (Dialog am Laptop, Blatt am Handy, über den vorhandenen `ResponsiveDialog`): alle Einträge der Zelle mit der vorhandenen Eintragszeile samt Bearbeiten und Löschen. Es merkt sich nur die Zelle; die Einträge kommen aus der geladenen Woche (Nach Bearbeiten, Löschen oder «Zeit erfassen» stimmt sofort alles; wird die Zelle leer, schliesst sich das Detail).
+- `week-parts.tsx` (Projektbezeichnung mit Hinweis «archiviert», Name einer Zelle für Screenreader), `sums.tsx` (Summenzeile, aus `zeiten-view.tsx` herausgelöst und von beiden Seiten genutzt).
+- Wiederverwendet aus PROJ-5 unverändert: `useEntryActions` (Bearbeiten, Löschen, Hinweise, Fokus), `EntryRow`, `TimeEntryFormDialog`, `ConfirmArchiveDialog`, `LoadError`. Kleine Ergänzung in der Datenschicht: `speakDuration` (90 → «1 Stunde 30 Minuten») für die Zellennamen.
+
+**Abweichung von der Spec (Breakpoint des Rasters):** Das Raster erscheint **ab 1024 px**, darunter die Tageskarten (Spec: «ab ca. 768 px»). Grund: Ab 768 px steht die Seitenleiste (256 px), der Inhalt ist dort nur ca. 450–700 px breit; sieben Tagesspalten plus Projekt und Summe passen erst ab 1024 px ohne seitliches Scrollen. Bei 768 px (Tablet hochkant) erhält man daher die Tageskarten; Detail als Dialog (ab 768 px) wie bei PROJ-5.
+
+**Fokus:** Das Detail merkt sich den angetippten Knopf. Beim Schliessen kehrt der Fokus zu ihm zurück; gibt es die Zelle nicht mehr (alles gelöscht oder verschoben), landet er auf der Überschrift «Woche». Die Dialoge «Zeit bearbeiten» und «Eintrag löschen?» öffnen sich über dem Detail und geben den Fokus ans Detail zurück (BUG-2-Lehre aus PROJ-5; im Browser geprüft: Escape gibt den Fokus an die Zelle zurück).
+
+**Tests:**
+- Neu `week-ui.test.tsx` (19 Tests): Raster, Zellen und Summen, Tageskarten, andere Wochen und archivierte Kunden, Leerzustand/Fehler/«Zahlen unvollständig», Navigation (zurück, vor, «Diese Woche», ungültige und zukünftige Wochen), Detail (Beschreibung, Uhrzeiten, «Keine Beschreibung»), Fokus, Bearbeiten, Löschen der letzten und einer von zwei Einträgen, Verschieben in die Vorwoche. Dazu `speak-duration.test.ts`; `navigation.test.ts` und `tests/PROJ-5-zeiten-qa.spec.ts` (Reihenfolge der Navigation, fünf Tabs) angepasst.
+- Vitest gesamt **392 von 392** grün (vorher 365). `tsc` ohne Fehler, Lint nur die alte Warnung in `use-toast.ts`, Produktions-Build läuft durch.
+- Browser (Chrome, Produktions-Build): Haupttests, Timer und Abmelden **249 von 249** grün (ein Last-Flake in PROJ-1 lief beim Wiederholen grün). Temporäre Prüfung der Seite mit echten Daten (danach gelöscht, Testdaten aufgeräumt): kein seitliches Scrollen bei 320, 375, 768, 1023, 1024, 1280 und 1440 px, alle Bedienelemente mindestens 44 × 44 px, Tab-Leiste mit fünf Einträgen (jeder mindestens 44 px breit), Detail öffnet sich aus Raster und Karte, Escape gibt den Fokus zurück, axe (WCAG 2.1 AA) ohne Verstösse in Hell und Dunkel bei 375 und 1280 px, jeweils auch mit offenem Detail. Sichtprüfung der Screenshots bei 320, 375 und 1280 px: sauber.
+- Bei der Sichtprüfung gefunden und behoben: Lange Kundennamen in den Tageskarten verursachten bei 320 px seitliches Scrollen (Knopf brach nicht um); «Diese Woche» sprang in dieselbe Woche (Unit-Test deckte es auf).
+
+### Offen für /qa
+- E2E-Tests für alle Kriterien (`tests/PROJ-7-woche-qa.spec.ts`), insbesondere: verschachtelte Dialoge und Fokus, Jahreswechselwochen, über 1000 Einträge, Zeitumstellung, Sitzung abgelaufen, Seitenschutz, Sicherheit (Beschreibung als Text), Firefox/Safari (bisher nur Chrome).
+- Spec-Abweichung (Breakpoint 1024 px) bewerten.
+
 ## QA Test Results
 _To be added by /qa_
 

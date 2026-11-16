@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, Home, Users, type LucideIcon } from 'lucide-react'
+import { Activity, CalendarDays, CalendarRange, Home, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   href: string
@@ -11,6 +11,7 @@ export interface NavItem {
 // Auf dem Handy passen höchstens fünf Einträge in die Tab-Leiste.
 export const navItems: NavItem[] = [
   { href: '/', label: 'Start', icon: Home },
+  { href: '/woche', label: 'Woche', icon: CalendarRange },
   { href: '/zeiten', label: 'Zeiten', icon: CalendarDays },
   { href: '/kunden', label: 'Kunden', icon: Users },
   { href: '/status', label: 'Status', icon: Activity },

@@ -50,6 +50,16 @@ export function formatDuration(minutes: number): string {
   return `${hours}:${String(rest).padStart(2, '0')}`
 }
 
+// Für Screenreader: 90 -> «1 Stunde 30 Minuten», 120 -> «2 Stunden», 1 -> «1 Minute», 0 -> «0 Minuten»
+export function speakDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  const parts: string[] = []
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'Stunde' : 'Stunden'}`)
+  if (rest > 0 || hours === 0) parts.push(`${rest} ${rest === 1 ? 'Minute' : 'Minuten'}`)
+  return parts.join(' ')
+}
+
 // «8:30» oder «08:30» -> Minuten seit Mitternacht, sonst null
 export function parseTime(input: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(input.trim())
