@@ -721,6 +721,13 @@ test.describe('Startseite «Heute» und «Zeit erfassen»', () => {
     await expect(row.getByRole('button', { name: /bearbeiten$/ })).toBeVisible()
     await expect(row.getByRole('button', { name: /löschen$/ })).toBeVisible()
 
+    // Der Link steht unter der Liste und erscheint nur, solange heute Einträge existieren: vor dem Löschen prüfen
+    await expect(page.getByRole('link', { name: 'Alle Zeiten' })).toHaveAttribute('href', '/zeiten')
+    await page.getByRole('link', { name: 'Alle Zeiten' }).click()
+    await expect(page).toHaveURL(/\/zeiten$/)
+    await page.goto('/')
+    await expect(row).toBeVisible()
+
     await row.getByRole('button', { name: /bearbeiten$/ }).click()
     await dialog(page).getByLabel('Beschreibung (optional)').fill(`Heute korrigiert ${run}`)
     await dialog(page).getByRole('button', { name: 'Speichern' }).click()
@@ -731,10 +738,6 @@ test.describe('Startseite «Heute» und «Zeit erfassen»', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Löschen', exact: true }).click()
     await expect(toast(page, 'Eintrag gelöscht.')).toBeVisible()
     await expect(page.getByText(`Heute korrigiert ${run}`)).toHaveCount(0)
-
-    await expect(page.getByRole('link', { name: 'Alle Zeiten' })).toHaveAttribute('href', '/zeiten')
-    await page.getByRole('link', { name: 'Alle Zeiten' }).click()
-    await expect(page).toHaveURL(/\/zeiten$/)
   })
 
   test('AC: «Zeit erfassen» auf /zeiten: Formular wie auf der Startseite, neuer Eintrag erscheint in der Liste', async ({ page }) => {

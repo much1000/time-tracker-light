@@ -1,6 +1,6 @@
 # PROJ-5: Zeiten prüfen und korrigieren
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-14
 **Last Updated:** 2026-11-14
 
@@ -347,4 +347,8 @@ Edge Case «Sehr viele Einträge (über 1000)»: **nicht bestanden** (BUG-1). Al
 **BEREIT (JA):** Keine kritischen oder hohen Fehler, BUG-1 und BUG-2 behoben und nachgetestet (Vitest 332, Browser 249 grün), SQL-Skript bestanden. Alle 39 Kriterien erfüllt. Status: Approved.
 
 ## Deployment
-_To be added by /deploy_
+- **Produktions-URL:** https://time-tracker-light.vercel.app (Seite `/zeiten`, Bearbeiten und Löschen auch auf der Startseite)
+- **Deployed:** 2026-11-16, Tag `v1.6.0-PROJ-5` (Commit `62fb198`)
+- **Datenbank:** Migration `time_entries_delete` in Supabase angewendet (Löschrecht nur für den Besitzer); SQL-Prüfung bestanden.
+- **Prüfung in Produktion:** Alle 39 Browser-Tests von `tests/PROJ-5-zeiten-qa.spec.ts` laufen grün gegen die Live-Seite. Der Test «Heute» wurde dabei unabhängiger gemacht (der Link «Alle Zeiten» erscheint nur, solange heute Einträge existieren; er wird jetzt vor dem Löschen geprüft).
+- **Hinweis PROJ-9:** Die Datenbank liefert höchstens 1000 Zeilen pro Antwort; der CSV-Export muss seitenweise laden.
