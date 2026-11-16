@@ -3,6 +3,7 @@ import { isNetworkFailure, isSessionFailure, type DbError } from '@/lib/supabase
 import { TimeEntryError } from './errors'
 import type { TimeEntriesRepository } from './repository'
 import { monthRange } from './month'
+import { weekRange } from './week'
 import {
   MONTH_ENTRY_LIMIT,
   type BookableCustomer,
@@ -11,6 +12,7 @@ import {
   type MonthEntries,
   type TimeEntry,
   type TimeEntryInput,
+  type WeekEntries,
 } from './types'
 
 // Echte Datenhaltung in Supabase. Die Regeln (Besitzer, Grenzen, Datum, archivierte Ziele,
@@ -25,6 +27,9 @@ const PROJECT_FIELDS = '(id, name, customer:customers!projects_customer_owner_fk
 const ENTRY_COLUMNS = `${ENTRY_FIELDS}, ${PROJECT_EMBED}${PROJECT_FIELDS}`
 // Mit Kundenfilter: nur Einträge, deren Projekt zum Kunden passt (innere Verknüpfung)
 const ENTRY_COLUMNS_INNER = `${ENTRY_FIELDS}, ${PROJECT_EMBED}!inner${PROJECT_FIELDS}`
+// Wochenabfrage (PROJ-7): zusätzlich die Archiv-Hinweise von Projekt und Kunde
+const WEEK_PROJECT_FIELDS = '(id, name, archived, customer:customers!projects_customer_owner_fkey(id, code, name, archived))'
+const WEEK_COLUMNS = `${ENTRY_FIELDS}, ${PROJECT_EMBED}${WEEK_PROJECT_FIELDS}`
 
 interface EntryRow {
   id: string
@@ -39,7 +44,9 @@ interface EntryRow {
   project: {
     id: string
     name: string
-    customer: { id: string; code: string; name: string }
+    // Nur in der Wochenabfrage mitgeladen
+    archived?: boolean
+    customer: { id: string; code: string; name: string; archived?: boolean }
   }
 }
 
@@ -66,6 +73,9 @@ function toEntry(row: EntryRow): TimeEntry {
     endTime: toClock(row.end_time),
     description: row.description,
     createdAt: row.created_at,
+    ...(row.project.archived === undefined
+      ? {}
+      : { projectArchived: row.project.archived, customerArchived: row.project.customer.archived ?? false }),
   }
 }
 
@@ -76,6 +86,12 @@ function byMonthOrder(a: TimeEntry, b: TimeEntry): number {
   if (a.startTime) return -1
   if (b.startTime) return 1
   return a.createdAt.localeCompare(b.createdAt)
+}
+
+// Aufsteigend nach Datum; innerhalb eines Tages wie byMonthOrder
+function byWeekOrder(a: TimeEntry, b: TimeEntry): number {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1
+  return byMonthOrder({ ...a, date: b.date }, b)
 }
 
 function byText(a: string, b: string): number {
@@ -174,26 +190,42 @@ export class SupabaseTimeEntriesRepository implements TimeEntriesRepository {
     return toEntry(data as unknown as EntryRow)
   }
 
-  async listMonth(filter: EntryFilter): Promise<MonthEntries> {
-    const { from, to } = monthRange(filter.month)
+  // Gemeinsame Abfrage für Monat und Woche: Einträge mit Datum von «from» bis vor «to».
+  // Die Datenbank liefert höchstens 1000 Zeilen pro Antwort (PostgREST max-rows), eine Zeile mehr
+  // anzufordern erkennt «abgeschnitten» daher nicht. Stattdessen die Gesamtzahl mitzählen lassen.
+  private async listRange(
+    columns: string,
+    from: string,
+    to: string,
+    ascending: boolean,
+    filter: { customerId?: string; withoutDescription?: boolean } = {}
+  ): Promise<{ entries: TimeEntry[]; truncated: boolean }> {
     let query = this.client
       .from('time_entries')
-      .select(filter.customerId ? ENTRY_COLUMNS_INNER : ENTRY_COLUMNS, { count: 'exact' })
+      .select(columns, { count: 'exact' })
       .gte('entry_date', from)
       .lt('entry_date', to)
     if (filter.customerId) query = query.eq('project.customer_id', filter.customerId)
     if (filter.withoutDescription) query = query.is('description', null)
-    // Die Datenbank liefert höchstens 1000 Zeilen pro Antwort (PostgREST max-rows), eine Zeile mehr
-    // anzufordern erkennt «abgeschnitten» daher nicht. Stattdessen die Gesamtzahl mitzählen lassen.
     const { data, error, count } = await query
-      .order('entry_date', { ascending: false })
+      .order('entry_date', { ascending })
       .order('created_at')
       .limit(MONTH_ENTRY_LIMIT)
     if (error) throw toError(error)
     const rows = data as unknown as EntryRow[]
     const truncated = (count ?? rows.length) > rows.length
-    const entries = rows.map(toEntry).sort(byMonthOrder)
+    const entries = rows.map(toEntry).sort(ascending ? byWeekOrder : byMonthOrder)
     return { entries, truncated }
+  }
+
+  async listMonth(filter: EntryFilter): Promise<MonthEntries> {
+    const { from, to } = monthRange(filter.month)
+    return this.listRange(filter.customerId ? ENTRY_COLUMNS_INNER : ENTRY_COLUMNS, from, to, false, filter)
+  }
+
+  async listWeek(week: string): Promise<WeekEntries> {
+    const { from, to } = weekRange(week)
+    return this.listRange(WEEK_COLUMNS, from, to, true)
   }
 
   async updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry> {

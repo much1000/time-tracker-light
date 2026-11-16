@@ -17,6 +17,9 @@ export interface TimeEntry {
   endTime: string | null
   description: string | null
   createdAt: string
+  // Nur in Wochenabfragen (PROJ-7) gesetzt: Kunde bzw. Projekt sind inzwischen archiviert
+  customerArchived?: boolean
+  projectArchived?: boolean
 }
 
 export interface TimeEntryInput {
@@ -66,5 +69,13 @@ export interface MonthEntries {
   truncated: boolean
 }
 
-// Obergrenze der Einträge pro Monatsabfrage
+// Einträge einer Woche (Wochenübersicht, PROJ-7): aufsteigend nach Datum, innerhalb eines Tages nach
+// Startzeit, sonst nach Anlegezeit; jeder Eintrag trägt die Archiv-Hinweise.
+export interface WeekEntries {
+  entries: TimeEntry[]
+  // Es gibt mehr Einträge, als angezeigt werden (Obergrenze MONTH_ENTRY_LIMIT): Zahlen sind unvollständig.
+  truncated: boolean
+}
+
+// Obergrenze der Einträge pro Monats- und Wochenabfrage
 export const MONTH_ENTRY_LIMIT = 1000

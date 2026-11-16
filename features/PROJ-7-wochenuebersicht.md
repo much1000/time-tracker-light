@@ -1,6 +1,6 @@
 # PROJ-7: Wochenübersicht
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -228,6 +228,20 @@ nur eigene Einträge). Die Zusammenfassung (Zellen, Summen) entsteht nur im Brow
 - **Verschachtelte Dialoge (Detail → Bearbeiten/Löschen) und Fokus:** BUG-2 in PROJ-5 hat gezeigt, dass Fokus-Rückgabe leicht verloren geht. Wird früh im Browser getestet.
 - **Doppelte Darstellung (Raster und Tageskarten) im Seitenbaum:** Tests und Barrierefreiheitsprüfung müssen sicherstellen, dass nur die sichtbare Darstellung für Screenreader und Tastatur erreichbar ist.
 - **Zeilen mit sehr langen Namen:** Raster darf nicht seitlich überlaufen (Umbruch statt Abschneiden).
+
+## Implementation Notes (Backend)
+**Umgesetzt am 2026-11-16. Keine Datenbank-Änderung, keine neue Tabelle, kein Server-Code (wie im Entwurf).** Alles liegt in der Datenschicht `src/lib/time-entries/`:
+
+- **Wochenlogik** `week.ts` (+ `week.test.ts`, 18 Tests): Wochenkennung «2026-W46» (ISO, Montag bis Sonntag) prüfen und lesen, aktuelle Woche nach Zürcher Uhr, `resolveWeek` (ungültig oder zukünftig → aktuelle Woche), `shiftWeek` (über Jahreswechsel, auch KW 53), `weekRange`/`weekDays`/`weekStart`, `weekOfDate`, Beschriftungen `formatWeekLabel` («KW 46 · 9.–15. Nov. 2026», über Monats- und Jahresgrenzen) und `formatDayShort` («Mo 9.»). Gerechnet wird nur mit Kalenderdaten, Monatsnamen aus eigener Liste (nicht von der Laufzeitumgebung abhängig). Getestet: Jahreswechsel, Schaltjahr, KW 53, Zeitumstellung (25. Okt. 2026), Zürcher Mitternacht.
+- **Wochenzusammenfassung** `week-summary.ts` (+ `week-summary.test.ts`, 11 Tests): `buildWeekSummary(week, entries)` liefert sieben Tage, Zeilen je Kunde · Projekt (nach Kürzel, dann Projektname), je Zeile sieben Zellen mit Einträgen und Summen (gearbeitet, verrechenbar), Tages-, Zeilen- und Wochensummen. Minutengenau, keine Rundung; Einträge ausserhalb der Woche werden ignoriert; Einträge bis 24:00 zählen zu ihrem Datum. Dazu `rowsOfDay` (für die Tageskarten am Handy) und `findCell` (Zelle für das Detail; null, wenn leer oder weg).
+- **Neue Abfrage `listWeek(week)`** in der Schnittstelle (`repository.ts`), in `supabase-repository.ts` und im Test-Double `in-memory-repository.ts`. Neuer Typ `WeekEntries`; `TimeEntry` hat optional `customerArchived` und `projectArchived` (nur in Wochenabfragen gesetzt). Aufsteigend nach Datum, innerhalb eines Tages nach Startzeit, sonst Anlegezeit; höchstens 1000 Einträge, Zähler (`count: 'exact'`) meldet `truncated` (Lehre aus BUG-1).
+- **Geteilter Code:** `listMonth` und `listWeek` benutzen dieselbe private Abfrage `listRange` (Zeitraum, Filter, Zähler, Sortierung). Verhalten und Tests von `listMonth` unverändert.
+- **Tests:** Vitest 365 von 365 grün (vorher 332, neu 33: Wochenlogik 18, Zusammenfassung 11, Repository 4). `tsc` ohne Fehler, Lint nur die alte Warnung in `use-toast.ts`.
+- **Prüfung gegen die echte Datenbank** (temporäres Skript, mit Testdaten, aufgeräumt und gelöscht): Die Abfrage mit den Archiv-Feldern von Projekt und Kunde wird von Supabase akzeptiert; von vier Einträgen (Sonntag davor, Montag, Sonntag, Montag danach) kommen genau Montag und Sonntag der Woche zurück, `count` stimmt, und die Archiv-Hinweise wechseln nach dem Archivieren von false auf true.
+
+### Offen für /frontend
+- Navigation «Woche» (`src/lib/navigation.ts`), Seite `/woche`, Wochenleiste, Raster (Tabelle), Tageskarten, Detail, Ladezustände. Die Bausteine `weekRange`, `buildWeekSummary`, `findCell`, `rowsOfDay`, `formatWeekLabel`, `formatDayShort` und `repository.listWeek` stehen bereit.
+- Gemeinsame Summenzeile «X gearbeitet · Y verrechenbar» aus `zeiten-view.tsx` in einen gemeinsamen Baustein verschieben.
 
 ## QA Test Results
 _To be added by /qa_

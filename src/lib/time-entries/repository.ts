@@ -5,6 +5,7 @@ import type {
   MonthEntries,
   TimeEntry,
   TimeEntryInput,
+  WeekEntries,
 } from './types'
 
 // Schnittstelle zur Datenhaltung für Zeiteinträge.
@@ -24,6 +25,10 @@ export interface TimeEntriesRepository {
   // neueste Tage zuerst, innerhalb eines Tages nach Startzeit, sonst nach Anlegezeit. Höchstens
   // MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
   listMonth(filter: EntryFilter): Promise<MonthEntries>
+  // Einträge einer Woche («2026-W46», Montag bis Sonntag nach Eintragsdatum), alle Kunden, aufsteigend nach
+  // Datum, innerhalb eines Tages nach Startzeit, sonst nach Anlegezeit. Jeder Eintrag trägt die Hinweise
+  // «Kunde/Projekt archiviert». Höchstens MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
+  listWeek(week: string): Promise<WeekEntries>
   // Ändert einen Eintrag (alle Felder, gleiche Regeln wie beim Anlegen). Der Anlegezeitpunkt bleibt.
   // Wirft «entry-not-found», wenn es ihn nicht mehr gibt.
   updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry>

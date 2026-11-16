@@ -10,7 +10,9 @@ import {
   type MonthEntries,
   type TimeEntry,
   type TimeEntryInput,
+  type WeekEntries,
 } from './types'
+import { weekRange } from './week'
 import { todayInZurich } from './zurich'
 
 // Test-Double: bildet die Regeln der Datenbank im Speicher nach (aktive Ziele, Datum). Wird nur in
@@ -101,6 +103,8 @@ export class InMemoryTimeEntriesRepository implements TimeEntriesRepository {
       if (detail && project) {
         return {
           archived: customer.archived || project.archived,
+          customerArchived: customer.archived,
+          projectArchived: project.archived,
           customerId: customer.id,
           code: customer.code,
           name: customer.name,
@@ -151,6 +155,31 @@ export class InMemoryTimeEntriesRepository implements TimeEntriesRepository {
         return a.createdAt.localeCompare(b.createdAt)
       })
     return { entries: matching.slice(0, MONTH_ENTRY_LIMIT), truncated: matching.length > MONTH_ENTRY_LIMIT }
+  }
+
+  // Archiv-Hinweise werden bei der Abfrage aus dem aktuellen Stand der Kunden und Projekte ergänzt
+  async listWeek(week: string): Promise<WeekEntries> {
+    await this.tick()
+    const { from, to } = weekRange(week)
+    const matching = this.read()
+      .filter((entry) => entry.date >= from && entry.date < to)
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1
+        if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime)
+        if (a.startTime) return -1
+        if (b.startTime) return 1
+        return a.createdAt.localeCompare(b.createdAt)
+      })
+    const visible = matching.slice(0, MONTH_ENTRY_LIMIT)
+    const flags = new Map<string, { customerArchived: boolean; projectArchived: boolean }>()
+    for (const projectId of new Set(visible.map((entry) => entry.projectId))) {
+      const found = await this.findProject(projectId)
+      flags.set(projectId, { customerArchived: found.customerArchived, projectArchived: found.projectArchived })
+    }
+    return {
+      entries: visible.map((entry) => ({ ...entry, ...flags.get(entry.projectId) })),
+      truncated: matching.length > MONTH_ENTRY_LIMIT,
+    }
   }
 
   // Wie die Datenbank: Datum nur bei Änderung gegen die Zukunft prüfen, Ziel nur bei Wechsel auf «aktiv»

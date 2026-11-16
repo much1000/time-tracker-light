@@ -223,6 +223,50 @@ describe('SupabaseTimeEntriesRepository', () => {
     expect(full.entries).toHaveLength(1000)
   })
 
+  it('listWeek fragt Montag bis vor dem Folgemontag ab, aufsteigend, mit Archiv-Hinweisen und Zähler', async () => {
+    const archivedProject = { id: 'p1', name: 'Allgemein', archived: true, customer: { id: 'c1', code: 'MUS', name: 'Muster AG', archived: false } }
+    const { repo, calls } = fakeClient([
+      {
+        data: [
+          row({ id: 'b', entry_date: '2026-11-10', start_time: null, end_time: null, created_at: '2026-11-10T09:00:00Z' }),
+          row({ id: 'a', entry_date: '2026-11-09', project: archivedProject }),
+          row({ id: 'c', entry_date: '2026-11-10', start_time: '07:00:00', end_time: '08:00:00' }),
+        ],
+        count: 3,
+      },
+    ])
+    const result = await repo.listWeek('2026-W46')
+    expect(result.truncated).toBe(false)
+    expect(result.entries.map((e) => e.id)).toEqual(['a', 'c', 'b'])
+    expect(result.entries[0]).toMatchObject({ projectArchived: true, customerArchived: false })
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'select')?.[1][0]).toContain('archived')
+    expect(ops.find(([name]) => name === 'select')?.[1][1]).toEqual({ count: 'exact' })
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-11-09'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-11-16'])
+    expect(ops.find(([name]) => name === 'order')?.[1]).toEqual(['entry_date', { ascending: true }])
+    expect(ops.find(([name]) => name === 'limit')?.[1]).toEqual([1000])
+    // Keine Kunden- oder Beschreibungsbedingung
+    expect(ops.some(([name]) => name === 'eq')).toBe(false)
+    expect(ops.some(([name]) => name === 'is')).toBe(false)
+  })
+
+  it('listWeek über den Jahreswechsel fragt den richtigen Bereich ab und meldet mehr als 1000 Einträge', async () => {
+    const many = Array.from({ length: 1000 }, (_, i) => row({ id: `e${i}`, entry_date: '2025-12-30' }))
+    const { repo, calls } = fakeClient([{ data: many, count: 1001 }])
+    const result = await repo.listWeek('2026-W01')
+    expect(result.truncated).toBe(true)
+    expect(result.entries).toHaveLength(1000)
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2025-12-29'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-01-05'])
+  })
+
+  it('listWeek: Fehler der Datenbank werden zu TimeEntryError', async () => {
+    const { repo } = fakeClient([{ error: { message: 'Failed to fetch' } }])
+    expect(await failure(repo.listWeek('2026-W46'))).toBe('unreachable')
+  })
+
   it('updateEntry schickt alle Felder (ohne Besitzer und Anlegezeitpunkt) für genau diesen Eintrag', async () => {
     const { repo, calls } = fakeClient([{ data: row({ description: 'Neu' }) }])
     const result = await repo.updateEntry('e1', { ...input, description: 'Neu' })

@@ -369,6 +369,27 @@ describe('InMemoryTimeEntriesRepository', () => {
     expect((await repo.listMonth({ month: '2025-05' })).entries).toEqual([])
   })
 
+  it('listWeek: Woche Montag bis Sonntag, aufsteigend, alle Kunden, mit Archiv-Hinweisen', async () => {
+    const other = await customers.createCustomer({ code: 'ABC', name: 'Abc GmbH' })
+    const otherProject = (await customers.getCustomer(other.id))!.projects[0].id
+    // Woche 2025-W11 = Montag 10. bis Sonntag 16. März 2025
+    await repo.createEntry(input({ date: '2025-03-09', description: 'davor' }))
+    await repo.createEntry(input({ date: '2025-03-16', description: 'sonntag' }))
+    await repo.createEntry(input({ date: '2025-03-10', startTime: '10:00', endTime: '11:00', durationMinutes: 60, billableMinutes: 60, description: 'spät' }))
+    await repo.createEntry(input({ date: '2025-03-10', startTime: '08:00', endTime: '09:00', durationMinutes: 60, billableMinutes: 60, description: 'früh' }))
+    await repo.createEntry(input({ projectId: otherProject, date: '2025-03-12', description: 'anderer Kunde' }))
+    await repo.createEntry(input({ date: '2025-03-17', description: 'danach' }))
+    await customers.archiveCustomer(other.id)
+
+    const week = await repo.listWeek('2025-W11')
+    expect(week.truncated).toBe(false)
+    expect(week.entries.map((e) => e.description)).toEqual(['früh', 'spät', 'anderer Kunde', 'sonntag'])
+    expect(week.entries[0]).toMatchObject({ customerArchived: false, projectArchived: false })
+    expect(week.entries[2]).toMatchObject({ customerCode: 'ABC', customerArchived: true })
+    expect((await repo.listWeek('2025-W12')).entries.map((e) => e.description)).toEqual(['danach'])
+    expect((await repo.listWeek('2025-W20')).entries).toEqual([])
+  })
+
   it('updateEntry ändert alle Felder, behält Anlegezeitpunkt und Kennung, meldet fehlende Einträge', async () => {
     const entry = await repo.createEntry(input({ date: '2025-03-10', description: 'alt' }))
     const updated = await repo.updateEntry(entry.id, input({ date: '2025-04-02', durationMinutes: 30, billableMinutes: 0, description: 'neu' }))
