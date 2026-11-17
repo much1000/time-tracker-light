@@ -262,6 +262,45 @@ describe('SupabaseTimeEntriesRepository', () => {
     expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-01-05'])
   })
 
+  it('listMonthReport fragt den Monat aufsteigend ab, mit Archiv-Hinweisen, ohne Filter, und zählt mit', async () => {
+    const archivedProject = { id: 'p1', name: 'Allgemein', archived: true, customer: { id: 'c1', code: 'MUS', name: 'Muster AG', archived: true } }
+    const { repo, calls } = fakeClient([
+      {
+        data: [
+          row({ id: 'b', entry_date: '2026-11-20' }),
+          row({ id: 'a', entry_date: '2026-11-02', project: archivedProject }),
+        ],
+        count: 2,
+      },
+    ])
+    const result = await repo.listMonthReport('2026-11')
+    expect(result.truncated).toBe(false)
+    expect(result.entries.map((e) => e.id)).toEqual(['a', 'b'])
+    expect(result.entries[0]).toMatchObject({ projectArchived: true, customerArchived: true })
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'select')?.[1][0]).toContain('archived')
+    expect(ops.find(([name]) => name === 'select')?.[1][1]).toEqual({ count: 'exact' })
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-11-01'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2026-12-01'])
+    expect(ops.find(([name]) => name === 'order')?.[1]).toEqual(['entry_date', { ascending: true }])
+    expect(ops.find(([name]) => name === 'limit')?.[1]).toEqual([1000])
+    expect(ops.some(([name]) => name === 'eq')).toBe(false)
+    expect(ops.some(([name]) => name === 'is')).toBe(false)
+  })
+
+  it('listMonthReport über den Jahreswechsel, mehr als 1000 Einträge und Fehler', async () => {
+    const many = Array.from({ length: 1000 }, (_, i) => row({ id: `e${i}`, entry_date: '2026-12-15' }))
+    const { repo, calls } = fakeClient([{ data: many, count: 1001 }])
+    const result = await repo.listMonthReport('2026-12')
+    expect(result.truncated).toBe(true)
+    expect(result.entries).toHaveLength(1000)
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'gte')?.[1]).toEqual(['entry_date', '2026-12-01'])
+    expect(ops.find(([name]) => name === 'lt')?.[1]).toEqual(['entry_date', '2027-01-01'])
+    const broken = fakeClient([{ error: { message: 'Failed to fetch' } }])
+    expect(await failure(broken.repo.listMonthReport('2026-11'))).toBe('unreachable')
+  })
+
   it('listWeek: Fehler der Datenbank werden zu TimeEntryError', async () => {
     const { repo } = fakeClient([{ error: { message: 'Failed to fetch' } }])
     expect(await failure(repo.listWeek('2026-W46'))).toBe('unreachable')

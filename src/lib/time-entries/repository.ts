@@ -29,6 +29,11 @@ export interface TimeEntriesRepository {
   // Datum, innerhalb eines Tages nach Startzeit, sonst nach Anlegezeit. Jeder Eintrag trägt die Hinweise
   // «Kunde/Projekt archiviert». Höchstens MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
   listWeek(week: string): Promise<WeekEntries>
+  // Einträge eines Monats («2026-11») für die Monatsauswertung (PROJ-8), alle Kunden, aufsteigend nach Datum,
+  // innerhalb eines Tages nach Startzeit, sonst nach Anlegezeit. Jeder Eintrag trägt die Hinweise
+  // «Kunde/Projekt archiviert». Höchstens MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
+  // Die Monatsliste von «Zeiten» (listMonth) bleibt unverändert.
+  listMonthReport(month: string): Promise<MonthEntries>
   // Ändert einen Eintrag (alle Felder, gleiche Regeln wie beim Anlegen). Der Anlegezeitpunkt bleibt.
   // Wirft «entry-not-found», wenn es ihn nicht mehr gibt.
   updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry>

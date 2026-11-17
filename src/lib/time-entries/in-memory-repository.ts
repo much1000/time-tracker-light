@@ -160,7 +160,16 @@ export class InMemoryTimeEntriesRepository implements TimeEntriesRepository {
   // Archiv-Hinweise werden bei der Abfrage aus dem aktuellen Stand der Kunden und Projekte ergänzt
   async listWeek(week: string): Promise<WeekEntries> {
     await this.tick()
-    const { from, to } = weekRange(week)
+    return this.listAscendingWithFlags(weekRange(week))
+  }
+
+  // Wie listWeek, für einen Monat (Monatsauswertung, PROJ-8)
+  async listMonthReport(month: string): Promise<MonthEntries> {
+    await this.tick()
+    return this.listAscendingWithFlags(monthRange(month))
+  }
+
+  private async listAscendingWithFlags({ from, to }: { from: string; to: string }): Promise<MonthEntries> {
     const matching = this.read()
       .filter((entry) => entry.date >= from && entry.date < to)
       .sort((a, b) => {

@@ -1,6 +1,6 @@
 # PROJ-8: Monatsauswertung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-17
 **Last Updated:** 2026-11-17
 
@@ -235,6 +235,23 @@ und werden nirgends gespeichert.
 - **Rundungsregel und Export müssen identisch bleiben:** Darum eine gemeinsame Funktion; PROJ-9 darf nicht neu rechnen.
 - **Falsche Summe in der Rechnung durch Unvollständigkeit:** Hinweise «Laufender Monat» und «Zahlen unvollständig» müssen auffallen (Text, nicht nur Farbe) und werden getestet.
 - **Doppelte Rundungsansicht verwirrt:** Drei Zahlen pro Zeile am Handy können unübersichtlich werden. Beschriftung und Anordnung (untereinander) werden bei 320/375 px geprüft; die gerundete Zahl ist als die für die Rechnung erkennbar.
+
+## Implementation Notes (Backend)
+**Umgesetzt am 2026-11-17. Keine Datenbank-Änderung, keine neue Tabelle, kein Server-Code (wie im Entwurf).** Alles liegt in der Datenschicht `src/lib/time-entries/`:
+
+- **Rundungsregel** `rounding.ts` (+ `rounding.test.ts`): `roundUpToBillingUnit(minuten)` rundet auf das nächste Vielfache von 15 Minuten nach oben (0 → 0, 1 → 15, 15 → 15, 16 → 30); negative, unendliche und ungültige Werte ergeben 0. Konstante `BILLING_UNIT_MINUTES = 15`. Einzige Stelle der Regel; PROJ-9 (CSV) verwendet dieselbe Funktion.
+- **Monatszusammenfassung** `month-summary.ts` (+ `month-summary.test.ts`, 12 Tests): `buildMonthSummary(month, entries)` liefert Kunden (nach Kürzel) mit Projekten (nach Name) und je Projekt die Einträge (älteste zuerst, am selben Tag nach Startzeit, dann nach Anlegezeit). Jede Ebene hat `worked`, `billable` (exakt) und `billableRounded`. Gerundet wird nur die Projektsumme, nach dem Summieren aller Einträge; Kunden- und Monatssumme addieren die gerundeten Projektwerte (kein zweites Runden). Einträge ausserhalb des Monats werden ignoriert. Archiv-Hinweise kommen aus den Einträgen (`customerArchived`, `projectArchived`).
+- **Neue Abfrage `listMonthReport(month)`** in der Schnittstelle (`repository.ts`), in `supabase-repository.ts` und im Test-Double `in-memory-repository.ts`. Liefert den ganzen Monat aufsteigend mit Archiv-Hinweisen und dem Kennzeichen `truncated` bei mehr als 1000 Einträgen (Typ `MonthEntries`). Sie nutzt dieselbe private Abfrage und dieselben Spalten wie `listWeek`; im Test-Double teilen sich beide eine private Methode. `listMonth` («Zeiten») bleibt unverändert, ein Test prüft das ausdrücklich (neueste Tage zuerst, keine Archiv-Hinweise).
+- **Tests:** Vitest 424 von 424 grün (vorher 393, neu 31: Rundung 16, Monatszusammenfassung 12, Repositories 3). `tsc` ohne Fehler, Lint nur die alte Warnung in `use-toast.ts`.
+- **Datenbank:** Die Supabase-Abfrage ist dieselbe wie die der Wochenübersicht (gleiche Spalten inkl. `archived` von Projekt und Kunde), nur mit Monatsgrenzen; sie wurde für PROJ-7 gegen die echte Datenbank geprüft. Für den Monat wurde sie nicht noch einmal gegen die echte Datenbank laufen gelassen; das übernimmt /qa.
+
+### Abweichungen vom Entwurf
+- Keine.
+
+### Offen für /frontend
+- Navigation «Monat» (`src/lib/navigation.ts`, sechster Eintrag; Test «höchstens fünf» auf sechs ändern), engere Tab-Leiste (`bottom-tab-bar.tsx`, 320 px prüfen), Seite `/monat`, Monatsleiste, Gesamtzeile, Kundenabschnitte, aufklappbare Projekte («Collapsible»), Hinweise «Laufender Monat» und «Zahlen unvollständig», Ladezustände.
+- Bausteine, die schon da sind: `resolveMonth`, `shiftMonth`, `isCurrentMonth`, `formatMonthLabel` (`month.ts`), `buildMonthSummary`, `roundUpToBillingUnit`, `listMonthReport`.
+- Prüfen, ob Woche und Monat eine gemeinsame «Zeitraum-Leiste» bekommen.
 
 ## QA Test Results
 _To be added by /qa_

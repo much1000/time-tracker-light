@@ -390,6 +390,29 @@ describe('InMemoryTimeEntriesRepository', () => {
     expect((await repo.listWeek('2025-W20')).entries).toEqual([])
   })
 
+  it('listMonthReport: ganzer Monat, aufsteigend, alle Kunden, mit Archiv-Hinweisen; listMonth bleibt unverändert', async () => {
+    const other = await customers.createCustomer({ code: 'ABC', name: 'Abc GmbH' })
+    const otherProject = (await customers.getCustomer(other.id))!.projects[0].id
+    await repo.createEntry(input({ date: '2025-02-28', description: 'davor' }))
+    await repo.createEntry(input({ date: '2025-03-31', description: 'letzter' }))
+    await repo.createEntry(input({ date: '2025-03-10', startTime: '10:00', endTime: '11:00', durationMinutes: 60, billableMinutes: 60, description: 'spät' }))
+    await repo.createEntry(input({ date: '2025-03-10', startTime: '08:00', endTime: '09:00', durationMinutes: 60, billableMinutes: 60, description: 'früh' }))
+    await repo.createEntry(input({ projectId: otherProject, date: '2025-03-12', description: 'anderer Kunde' }))
+    await repo.createEntry(input({ date: '2025-04-01', description: 'danach' }))
+    await customers.archiveCustomer(other.id)
+
+    const report = await repo.listMonthReport('2025-03')
+    expect(report.truncated).toBe(false)
+    expect(report.entries.map((e) => e.description)).toEqual(['früh', 'spät', 'anderer Kunde', 'letzter'])
+    expect(report.entries[0]).toMatchObject({ customerArchived: false, projectArchived: false })
+    expect(report.entries[2]).toMatchObject({ customerCode: 'ABC', customerArchived: true })
+    expect((await repo.listMonthReport('2025-05')).entries).toEqual([])
+    // «Zeiten» liefert weiter neueste Tage zuerst und ohne Archiv-Hinweise
+    const list = await repo.listMonth({ month: '2025-03' })
+    expect(list.entries[0].description).toBe('letzter')
+    expect(list.entries[0].customerArchived).toBeUndefined()
+  })
+
   it('updateEntry ändert alle Felder, behält Anlegezeitpunkt und Kennung, meldet fehlende Einträge', async () => {
     const entry = await repo.createEntry(input({ date: '2025-03-10', description: 'alt' }))
     const updated = await repo.updateEntry(entry.id, input({ date: '2025-04-02', durationMinutes: 30, billableMinutes: 0, description: 'neu' }))

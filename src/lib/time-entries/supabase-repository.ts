@@ -228,6 +228,12 @@ export class SupabaseTimeEntriesRepository implements TimeEntriesRepository {
     return this.listRange(WEEK_COLUMNS, from, to, true)
   }
 
+  // Monatsauswertung (PROJ-8): wie die Wochenabfrage, mit Archiv-Hinweisen und aufsteigend
+  async listMonthReport(month: string): Promise<MonthEntries> {
+    const { from, to } = monthRange(month)
+    return this.listRange(WEEK_COLUMNS, from, to, true)
+  }
+
   async updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry> {
     const { data, error } = await this.client
       .from('time_entries')
