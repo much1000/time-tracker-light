@@ -1,6 +1,6 @@
 # PROJ-7: Wochenübersicht
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-16
 **Last Updated:** 2026-11-16
 
@@ -367,4 +367,10 @@ Beobachtungen (keine Fehler):
 - **Empfehlung:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://time-tracker-light.vercel.app/woche
+- **Deployed:** 2026-11-17 (Auto-Deploy durch Push auf `main`, Commit `020f02c`)
+- **Tag:** `v1.7.0-PROJ-7`
+- **Datenbank:** keine Migration nötig (die Wochenübersicht liest nur vorhandene Zeiteinträge)
+- **Geprüft vor dem Deploy:** `npm run build` ok, `npm run lint` ohne Fehler (eine alte Warnung in `use-toast.ts`), Vitest 393/393, Playwright (Chrome) 297/297
+- **Geprüft in Produktion:** `/woche` existiert und leitet ohne Anmeldung auf `/login?next=%2Fwoche` um (HTTP 307). Die Sicht nach der Anmeldung wurde vom Nutzer geprüft bzw. ist noch von ihm zu bestätigen (kein Zugriff auf die Zugangsdaten).
+- **Offen:** Firefox/Safari ungetestet; Raster erst ab 1024 px (Abweichung von der Spec, 768 px); kein Sentry, keine Lighthouse-Messung

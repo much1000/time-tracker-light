@@ -18,7 +18,7 @@ Ich selbst als Einzelperson, die für mehrere Kunden und Projekte arbeitet.
 | P0 | Manuelle Zeiterfassung inkl. Nacherfassung (Datum, von–bis oder Dauer, Beschreibung, verrechenbare Stunden) | Deployed |
 | P0 | Zeiten prüfen und korrigieren (Liste, bearbeiten, löschen) | Deployed |
 | P0 | Timer (ein Start/Stopp-Knopf pro Kunde/Projekt, immer nur ein Timer aktiv) | Deployed |
-| P0 | Wochenübersicht (Stunden pro Tag, Kunde, Projekt, mit Beschreibung) | Planned |
+| P0 | Wochenübersicht (Stunden pro Tag, Kunde, Projekt, mit Beschreibung) | Deployed |
 | P0 | Monatsauswertung (Summe pro Kunde, gearbeitet und verrechenbar, inkl. Beschreibungstexte) | Planned |
 | P0 | CSV-Export aller Zeiten (jederzeit) | Planned |
 | P1 | Installierbare Web-App (PWA) für das Handy | Planned |
