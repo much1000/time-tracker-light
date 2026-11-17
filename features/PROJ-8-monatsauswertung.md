@@ -1,6 +1,6 @@
 # PROJ-8: Monatsauswertung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-17
 **Last Updated:** 2026-11-17
 
@@ -136,12 +136,105 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine Datenbank-Änderung, keine neue Tabelle, kein Server-Code | Reine Ansicht auf vorhandene Einträge; bestehende Zugriffsregeln (nur eigene Daten) genügen | 2026-11-17 |
+| Rundung als eigene reine Funktion in der Datenschicht, in ganzen Minuten, nach der Summe pro Projekt | Eine einzige Regel, einzeln testbar; PROJ-9 (CSV) verwendet dieselbe Funktion, damit Bildschirm und Export nie auseinanderlaufen; keine Dezimalstunden, also keine Rundungsfehler | 2026-11-17 |
+| Zusammenfassung (Kunde → Projekt → Einträge) im Browser aus den Einträgen des Monats | Eine Abfrage, keine Doppelrechnung; Summen von Auswertung, «Zeiten» und «Woche» stammen aus denselben Einträgen | 2026-11-17 |
+| Neue Abfrage «Einträge eines Monats für die Auswertung» statt Änderung der Monatsabfrage von «Zeiten» | Auswertung braucht Archiv-Hinweise und aufsteigende Reihenfolge; «Zeiten» bleibt unverändert und ungefährdet; gleicher innerer Baustein wie `listWeek` (Zähler für «mehr als 1000») | 2026-11-17 |
+| Auf-/Zuklappen mit shadcn/ui «Collapsible», Zustand nur im Bildschirm, nicht in der Adresse | Bereits installiert, tastaturbedienbar, Zustand für Screenreader; keine neue Abhängigkeit; Monatswechsel setzt alle Projekte zurück | 2026-11-17 |
+| Monatslogik (`month.ts`) und Navigation wiederverwenden; gemeinsame «Zeitraum-Leiste» prüfen | Kennung, Beschriftung, vor/zurück und Zukunftsprüfung gibt es schon; vermeidet ein drittes Navigationsbauteil | 2026-11-17 |
+| Navigation: sechster Eintrag, Tab-Leiste mit engeren Abständen; Test «höchstens fünf» wird «höchstens sechs» | Produktentscheidung (sechs Tabs); 44-px-Ziele bleiben Pflicht und werden bei 320 px geprüft | 2026-11-17 |
+| «Laufender Monat» aus dem Kalender (Zürcher Uhr) erkannt, mit Text und Symbol | Verhindert unvollständige Summen in Rechnungen; unabhängig von der Datenlage | 2026-11-17 |
+| Keine neuen Pakete | Vorhandene shadcn/ui-Bausteine und Ganzzahlrechnung genügen | 2026-11-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Die Monatsauswertung ist, wie die Wochenübersicht, eine **reine Ansicht auf bestehende Zeiteinträge**. Es entstehen keine neue Tabelle, keine neuen Zugriffsregeln und keine Datenbank-Änderung. Neu sind die Seite `/monat`, die **Rundungsregel** (eine einzige, getestete Rechenfunktion) und eine kleine Erweiterung der Monatsabfrage um die Archiv-Hinweise. Der Navigationsbaustein (Pfeile, «Dieser Monat», Adresse mit Zustand), die Monatslogik, die Summenanzeige, die Eintragsdarstellung und die Lade-/Fehlerzustände gibt es schon und werden wiederverwendet. **Backend-Aufwand: klein**, nur in der Datenschicht, kein SQL.
+
+### A) Komponentenstruktur
+```
+Seite /monat (geschützt, Titel «Monat · Time Tracker Light»)
++-- Kopfzeile: Überschrift «Monat» + Knopf «Zeit erfassen» (Formular wie auf «Zeiten»)
++-- Monatsleiste
+|   +-- Pfeil «Vorheriger Monat»
+|   +-- Überschrift «November 2026» (kündigt Wechsel an)
+|   +-- Pfeil «Nächster Monat» (im aktuellen Monat gesperrt)
+|   +-- Knopf «Dieser Monat»
++-- Hinweis «Laufender Monat, noch nicht abgeschlossen» (nur im aktuellen Monat, mit Symbol und Text)
++-- Hinweis «Zahlen unvollständig» (nur bei mehr als 1000 Einträgen)
++-- Zustände: Laden (Platzhalter) / Fehler mit «Erneut versuchen» / Leerzustand mit «Zeit erfassen»
++-- Gesamtzeile des Monats: Gearbeitet · Verrechenbar · Verrechenbar gerundet auf 15 Min.
+|   +-- kurzer Erklärungstext «Pro Projekt aufgerundet auf 15 Minuten»
++-- «Alle aufklappen» / «Alle zuklappen»
++-- Kundenabschnitte (einer je Kunde mit Einträgen, nach Kürzel; «archiviert»-Hinweis)
+    +-- Kopf: «Kürzel · Kundenname» + Kundensumme (3 Zahlen)
+    +-- Projektzeilen (je Projekt mit Einträgen, nach Name; «archiviert»-Hinweis)
+        +-- Auf-/Zuklapp-Knopf mit Projektname + 3 Zahlen (Handy: Zahlen untereinander)
+        +-- aufgeklappt: Eintragsliste nach Datum
+            +-- je Eintrag: Datum, Beschreibung («Keine Beschreibung»), Uhrzeiten (falls vorhanden),
+                gearbeitet, verrechenbar
+            +-- Link «In Zeiten ansehen» (öffnet «Zeiten» im gleichen Monat)
+```
+Auf Laptop und Handy ist es **dieselbe Struktur**; nur die Anordnung der drei Zahlen ändert sich (nebeneinander bzw. untereinander). Es gibt kein Raster und keine zwei Darstellungen, deshalb auch keine doppelten Inhalte für Screenreader.
+
+### B) Datenmodell (in Alltagssprache)
+**Es werden keine neuen Daten gespeichert.** Die Auswertung liest die vorhandenen Zeiteinträge (PROJ-4) eines Monats und rechnet daraus:
+
+```
+Ein Monat hat:
+- Kennung («2026-11»), Überschrift «November 2026», Kennzeichen «laufender Monat»
+- Gesamtsummen: gearbeitet, verrechenbar (exakt), verrechenbar gerundet
+- Kunden mit Einträgen (Kürzel, Name, Hinweis «archiviert»), je Kunde:
+    - Kundensumme: gearbeitet, verrechenbar exakt, verrechenbar gerundet
+      (gerundet = Summe der gerundeten Projekte des Kunden)
+    - Projekte mit Einträgen (Name, Hinweis «archiviert»), je Projekt:
+        - gearbeitet (Minuten), verrechenbar exakt (Minuten)
+        - verrechenbar gerundet = verrechenbare Minuten, aufgerundet auf ein Vielfaches von 15
+        - die Einträge des Projekts im Monat, älteste zuerst
+
+Ein Eintrag (bekannt aus PROJ-4) hat: Datum, Projekt, Dauer, verrechenbare Dauer,
+optionale Uhrzeiten, optionale Beschreibung, Archiv-Hinweise (Kunde/Projekt archiviert).
+
+Gespeichert in: Supabase (bestehende Tabelle der Zeiteinträge, bestehende Zugriffsregeln:
+nur eigene Einträge). Die Zusammenfassung und die Rundung entstehen nur im Browser aus den Einträgen
+und werden nirgends gespeichert.
+```
+
+### C) Technische Entscheidungen (begründet)
+- **Keine neue Datenbank-Struktur, kein neuer Server-Code.** Wie bei «Zeiten» und «Woche» spricht die Seite über die vorhandene Datenschicht mit Supabase; die vorhandenen Zugriffsregeln schützen die Daten. Das hält das Projekt kostenlos und einfach.
+- **Die Rundung ist eine reine Rechenfunktion, nicht Teil der Daten.** Einträge bleiben minutengenau (Produktentscheidung). Die Funktion «Minuten auf 15 aufrunden» und die Zusammenfassung stehen in der Datenschicht, getrennt von der Oberfläche, und werden einzeln getestet (Grenzfälle 0, 1, 14, 15, 16, 450, 1440 Minuten; viele kurze Einträge). So rechnen später der **CSV-Export (PROJ-9) und der Bildschirm mit demselben Code** und können nicht auseinanderlaufen (PRD-Erfolgskriterium 3 und 4).
+- **Rundung nach der Summe, in Ganzzahlen.** Es wird zuerst pro Projekt in ganzen Minuten summiert und danach gerundet. Es gibt kein Rechnen mit Dezimalstunden, damit keine Rundungsfehler durch Kommazahlen entstehen. Die Kundensumme addiert die gerundeten Projektwerte; es wird nie ein zweites Mal gerundet.
+- **Eine Abfrage für den Monat, bestehende Monatsabfrage erweitern.** Die Monatsabfrage von «Zeiten» liefert die Einträge des Monats bereits, aber ohne die Archiv-Hinweise und mit neuesten Tagen zuerst. Die Auswertung braucht Archiv-Hinweise und aufsteigende Reihenfolge. Statt eine zweite, fast gleiche Abfrage zu bauen, bekommt die Datenschicht eine zusätzliche Methode «Einträge eines Monats für die Auswertung», die denselben inneren Baustein (Zeitraum, Zähler für «mehr als 1000») wie die Wochenabfrage nutzt. Sie ist so klein wie `listWeek` aus PROJ-7.
+- **Auf- und Zuklappen mit dem vorhandenen shadcn/ui-Baustein «Collapsible» bzw. «Accordion».** Beide sind installiert. Das Auf-/Zuklappen wird von Tastatur und Screenreader unterstützt (Zustand «aufgeklappt/zugeklappt»). «Alle aufklappen» setzt den Zustand der Projekte gemeinsam; beim Monatswechsel sind wieder alle zugeklappt. Der Zustand ist reiner Bildschirmzustand, wird nicht in die Adresse geschrieben.
+- **Monatslogik und Navigation wiederverwenden.** `month.ts` kennt schon Kennung, aktueller Monat, vor/zurück, Beschriftung «November 2026» und Zukunftsprüfung. Die Wochenleiste aus PROJ-7 und die Monatsnavigation aus «Zeiten» sind sich ähnlich; es wird geprüft, ob daraus ein gemeinsamer Baustein «Zeitraum-Leiste» entsteht, statt sie ein drittes Mal zu bauen (Aufgabe für /frontend).
+- **Adresse als Zustand (`/monat?monat=2026-11`):** wie auf «Zeiten»; Link teilbar, Zurück-Knopf und Neuladen behalten den Monat; ungültiger oder zukünftiger Monat führt zum aktuellen.
+- **«Laufender Monat» wird aus dem Kalender erkannt**, nicht aus der Datenlage: Monat = aktueller Monat nach Zürcher Uhr. Der Hinweis hat Text und Symbol, nicht nur Farbe.
+- **Aktualisierung bei Änderungen an anderer Stelle:** wie «Heute», «Zeiten» und «Woche» reagiert die Seite auf den vorhandenen «Einträge geändert»-Zähler des Timers (Timer stoppen, «Zeit erfassen» auf dieser Seite); beim Zurückkehren auf die Seite wird frisch geladen.
+- **Navigation: ein Eintrag mehr in der zentralen Liste** (Start, Woche, **Monat**, Zeiten, Kunden, Status). Seitenleiste und Tab-Leiste lesen dieselbe Liste. Die Tab-Leiste war für höchstens fünf Einträge gebaut und hat dann bei 320 px nur noch rund 53 px pro Eintrag. Die seitlichen Abstände der Einträge müssen dafür kleiner werden, damit Beschriftungen wie «Kunden» und «Zeiten» nicht abgeschnitten werden (Vorgabe: mindestens 44 px breit und hoch). Der bestehende Test «höchstens fünf Einträge» wird auf sechs angepasst.
+- **Bewusst nicht gebaut:** Kopieren, Dezimalstunden (offen), Bearbeiten/Löschen, Filter, laufender Timer in der Summe, andere Zeiträume.
+
+### D) Neue Datenschicht-Bausteine (ohne Code)
+- **Rundungsregel** (neue Datei neben der Wochenzusammenfassung) mit Tests: aufrunden auf 15 Minuten, Grenzfälle (0, 1, 14, 15, 16, 450, 1440), Kommazahlen kommen nicht vor.
+- **Monatszusammenfassung** (reine Funktion): Einträge → Kunden mit Projekten, je Projekt Einträge nach Datum, gearbeitet, verrechenbar exakt und gerundet; Kundensumme und Monatssumme als Summe der gerundeten Projekte. Tests: mehrere Projekte pro Kunde, zehn Einträge zu 3 Minuten, Summe genau auf 15, Projekt ohne verrechenbare Zeit, archivierte Kunden/Projekte, leerer Monat, 24:00, «gerundet ≥ exakt, Unterschied < 15 Min. pro Projekt».
+- **Neue Methode «Einträge eines Monats für die Auswertung»** in der Schnittstelle der Zeiteinträge: Implementierung für Supabase und für die Tests im Speicher; liefert die Archiv-Hinweise mit und den Hinweis «abgeschnitten» bei mehr als 1000 Einträgen. Die bestehende Monatsabfrage der Seite «Zeiten» bleibt unverändert.
+- **Gemeinsame Anzeige-Bausteine:** Die Summenzeile («gearbeitet · verrechenbar») und die Eintragszeile gibt es schon; die Auswertung zeigt zusätzlich «verrechenbar gerundet» und eine Eintragszeile ohne Aktionen (nur lesen, mit Link zu «Zeiten»).
+
+### E) Abhängigkeiten (Pakete)
+**Keine neuen Pakete.** Verwendet werden die vorhandenen shadcn/ui-Bausteine «Collapsible» (Auf-/Zuklappen), «Card», «Button», «Badge», «Alert», «Skeleton» und die vorhandenen Symbole (lucide-react). Eine Datums- oder Rechenbibliothek ist nicht nötig (Ganzzahlen, Kalenderdaten).
+
+### F) Reihenfolge der Umsetzung (Hinweis für /backend und /frontend)
+1. **/backend (klein):** Rundungsregel, Monatszusammenfassung, neue Abfrage «Einträge eines Monats für die Auswertung» (Supabase und im Speicher) samt Tests. Keine Datenbank-Änderung.
+2. **/frontend:** Navigation «Monat» inkl. engerer Tab-Leiste (6 Einträge bei 320 px prüfen), Seite `/monat`, Monatsleiste, Gesamtzeile, Kundenabschnitte, aufklappbare Projekte mit Eintragsliste, Zustände, Barrierefreiheit, Tests.
+3. **/qa:** Kriterien, Randfälle (Rundung an Grenzen, über 1000 Einträge, Monate mit Zeitumstellung, Monatsgrenzen), Layout 320–1440 px (besonders die Tab-Leiste), axe, Regression von «Zeiten», «Woche» und «Start».
+
+### G) Risiken
+- **Tab-Leiste mit sechs Einträgen bei 320 px:** Beschriftungen und Mindestgrösse 44 px sind knapp. Wird früh im Browser bei 320 und 375 px geprüft; wenn es nicht reicht, kehren wir zur Frage «Status aus der Leiste nehmen» zurück (Entscheidung beim Nutzer).
+- **Rundungsregel und Export müssen identisch bleiben:** Darum eine gemeinsame Funktion; PROJ-9 darf nicht neu rechnen.
+- **Falsche Summe in der Rechnung durch Unvollständigkeit:** Hinweise «Laufender Monat» und «Zahlen unvollständig» müssen auffallen (Text, nicht nur Farbe) und werden getestet.
+- **Doppelte Rundungsansicht verwirrt:** Drei Zahlen pro Zeile am Handy können unübersichtlich werden. Beschriftung und Anordnung (untereinander) werden bei 320/375 px geprüft; die gerundete Zahl ist als die für die Rechnung erkennbar.
 
 ## QA Test Results
 _To be added by /qa_
