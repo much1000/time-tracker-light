@@ -1,8 +1,8 @@
 # PROJ-8: Monatsauswertung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-17
-**Last Updated:** 2026-11-17
+**Last Updated:** 2026-11-18
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup) — Datenbank und Zugriffsregeln
@@ -267,7 +267,57 @@ und werden nirgends gespeichert.
 - **Bekannte Grenzen / für /qa:** Die Browser-Tests (Playwright) für die neue Seite, die Prüfung mit axe in Hell/Dunkel, das Layout bei 320/375/768/1440 px (besonders die Tab-Leiste mit sechs Einträgen und die drei Zahlen am Handy) sowie die Prüfung der Abfrage gegen die echte Datenbank stehen noch aus. Die zwei offenen Fragen aus der Spec zu Dezimalstunden und Kundenreihenfolge bleiben wie vorgeschlagen (nur h:mm, nach Kürzel).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet am:** 2026-11-18 · **Stand:** Commit `50fd118` (Produktionsbuild, Chrome) · **Tester:** QA (Claude)
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 38 von 38 erfüllt, davon 2 mit Einschränkung (BUG-1 Layout bei sehr langen Namen, BUG-2 Aufklapp-Zustand beim Zurückblättern).
+- **Bugs:** 0 Critical, 0 High, 1 Medium, 1 Low.
+- **Sicherheit:** keine Befunde.
+- **Produktionsreif:** **JA** (keine Critical/High). Empfehlung: BUG-1 vor dem Deploy beheben, weil er einen in der Spec ausdrücklich genannten Randfall betrifft (lange Namen).
+
+### Automatisierte Tests
+- **Vitest:** 444 von 444 grün (Rundung 16, Monatszusammenfassung 12, Repositories, UI 20).
+- **Playwright (Chrome, Produktionsbuild):** neue Datei `tests/PROJ-8-monat-qa.spec.ts` mit 43 Tests; gesamte Suite (PROJ-1 bis PROJ-8) 336 von 336 grün (mit `--workers=2`).
+- Die drei Tests `BUG-1` (je 320/375/768 px) und `BUG-2` sind mit `test.fail` markiert: Sie bestehen, solange der Fehler da ist, und melden sich, sobald er behoben ist (dann `test.fail` entfernen).
+- **Hinweis Stabilität:** Bei voller Parallelität (4 Worker) und vielen offenen Browsern auf dem Rechner kam es zu wechselnden Zeitüberschreitungen (30 s), vor allem bei `/status` (PROJ-1/PROJ-11/PROJ-5). Mit zwei Workern lief alles durch. Kein Zusammenhang mit PROJ-8; der Fehler aus dem Frontend-Schritt (PROJ-4, Pfeiltaste) trat nicht mehr auf.
+- **Echte Datenbank:** Die Monatsabfrage wurde gegen Supabase geprüft (Monatsgrenzen, Schaltjahr 2012-02, Zeitumstellung 2012-03 und 2012-10, 24:00 am Monatsletzten, mehr als 1000 Einträge). Summen der Seite stimmen minutengenau mit einer unabhängigen Datenbankabfrage überein.
+
+### Akzeptanzkriterien
+| Bereich | Ergebnis |
+|---|---|
+| Navigation (Reihenfolge, aktiv, Titel «Monat · Time Tracker Light», Tab-Leiste 320/375 px, 44 px, nichts abgeschnitten, Seitenschutz) | bestanden |
+| Monatsnavigation (aktueller Monat, Pfeile, «Dieser Monat», Adresse `?monat=`, ungültig/Zukunft, Jahreswechsel, Hinweis «Laufender Monat», Ladefehler mit «Erneut versuchen», keine Zahlen des alten Monats) | bestanden |
+| Kunden/Projekte (Gesamtzeile, Reihenfolge nach Kürzel/Name, «archiviert», drei beschriftete Zahlen, Rundung pro Projekt, Kundensumme = Summe der gerundeten Projekte, Projekt ohne verrechenbare Zeit, Leerzustand) | bestanden |
+| Tätigkeitstexte (zugeklappt zu Beginn, Sortierung, Datum «Di 1.5.», Beschreibung/«Keine Beschreibung», Uhrzeiten inkl. 24:00, Alle auf-/zuklappen, keine Bearbeiten/Löschen, Link «In Zeiten ansehen» mit Monat) | bestanden; **Monatswechsel zurück: BUG-2** |
+| Aktualität («Zeit erfassen» auf der Seite, Rückkehr von «Zeiten», Eintrag gelöscht → Kunde verschwindet) | bestanden |
+| Zahlen und Zeit (24:00, Zeitumstellung, Schaltjahr, Summen minutengenau, gerundet ≥ exakt und < 15 Min. Unterschied) | bestanden |
+| Bedienung (44 px, Tastatur Enter/Leertaste, `aria-expanded`, Fokus sichtbar, Deutsch) | bestanden |
+| Layout 320/375/768/1440 px (Zahlen untereinander unter 640 px, nebeneinander darüber, kein Abschneiden) | bestanden; **sehr langer Kundenname: BUG-1** |
+| Barrierefreiheit axe WCAG AA, Hell und Dunkel, 375 und 1280 px, Monat zu/aufgeklappt, Leerzustand, Formular | bestanden (keine Verstösse) |
+
+### Randfälle
+Bestanden: Monate mit Zeitumstellung, erster/letzter Tag, 24:00, zehn Einträge zu 3 Minuten (0:30), 5 Minuten je zwei Projekte (0:30 gerundet bei 0:10 exakt), archivierter Kunde/Projekt, HTML/Sonderzeichen als Text (kein `img`, kein Skript), Zeilenumbrüche, sehr langer Text, mehr als 1000 Einträge (Hinweis «Zahlen unvollständig», Summe 16:40 der ersten 1000), Ladefehler. Nicht bestanden: sehr langer Kundenname ohne Leerzeichen (BUG-1).
+
+### Bugs
+- **BUG-1 (Medium): Sehr langer Kundenname ohne Leerzeichen bricht nicht um.** Der Abschnittskopf eines Kunden (`month-customer-section.tsx`, Überschrift mit `span.break-words` in einem `flex flex-wrap`) verbreitert die Seite, sodass sie waagrecht scrollt. Auftreten bei 320, 375 und 768 px (Name mit rund 95 Zeichen am Stück: Seitenbreite bis rund 987 px bei 320 px). Spec-Randfall «Kunden- oder Projektname sehr lang: bricht um» verletzt. Reproduktion: Kunde mit Namen aus ~95 Zeichen ohne Leerzeichen anlegen, Eintrag erfassen, `/monat` bei 320 px öffnen. Wahrscheinliche Ursache: `break-words` allein verkleinert die Mindestbreite des Flex-Elements nicht; `min-w-0` und `[overflow-wrap:anywhere]` am Namens-Element dürften genügen. Dasselbe prüfen bei Projektname im Knopf der Projektzeile (dort mit `min-w-0` bereits angelegt, im Test unauffällig). Test: `BUG-1` in `tests/PROJ-8-monat-qa.spec.ts`.
+- **BUG-2 (Low): Aufklapp-Zustand kehrt beim Zurückblättern zurück.** Wer im Mai Projekte aufklappt, in den April und wieder in den Mai blättert, sieht im Mai wieder aufgeklappte Projekte (der Zustand merkt sich den Monat). Spec: «im neuen Monat alle Projekte wieder zugeklappt». Im April selbst stimmt es. Ursache: `OpenState` in `month-view.tsx` behält `month` und gilt wieder, sobald der Monat gleich ist. Kein Datenproblem. Test: `BUG-2`.
+
+### Sicherheit (Red Team)
+- Ohne Anmeldung: `/monat` und `/monat?monat=2012-05` führen zur Anmeldung, keine Daten sichtbar (getestet).
+- Zugriff nur mit öffentlichem Schlüssel ohne Sitzung: Abfrage der Einträge liefert 0 Zeilen (Zugriffsregeln greifen).
+- XSS: Beschreibung `<img src=x onerror=alert(1)>` erscheint als Text; kein Element, kein Dialog.
+- Monatsparameter `?monat=` mit ungültigen Werten (`abc`, `2012-13`, `2099-01`, leer) führt zum aktuellen Monat; keine Fehler, keine Injektion in die Abfrage (Wert wird vor der Abfrage geprüft).
+- Keine Schlüssel oder Tokens im Seitentext. Keine Schreibaktionen auf der Seite ausser dem bestehenden Formular «Zeit erfassen».
+
+### Nicht getestet / Grenzen
+- **Firefox und Safari:** nicht getestet (Playwright-Browser dafür auf diesem Rechner nicht nutzbar; nur Chrome). Die Seite nutzt nur Standardbausteine (shadcn/ui, Radix Collapsible).
+- **Echte Geräte** (Handy, Tablet): nur Emulation per Viewport (320 bis 1440 px).
+- Dezimalstunden, Kundenreihenfolge und Erklärungstext: offene Fragen bleiben bei den Vorschlägen (nur h:mm, nach Kürzel, kurzer Text «Pro Projekt aufgerundet auf 15 Minuten.» ist umgesetzt).
+- Lighthouse und Sentry gehören zu `/deploy`.
+
+### Regression
+PROJ-1 bis PROJ-7 laufen unverändert (336 von 336 grün, Chrome); die Navigation mit sechs Einträgen und die engere Tab-Leiste sind bei 320 und 375 px in den Tests von PROJ-5, PROJ-7 und PROJ-8 geprüft.
 
 ## Deployment
 _To be added by /deploy_
