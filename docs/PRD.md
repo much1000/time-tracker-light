@@ -20,7 +20,7 @@ Ich selbst als Einzelperson, die für mehrere Kunden und Projekte arbeitet.
 | P0 | Timer (ein Start/Stopp-Knopf pro Kunde/Projekt, immer nur ein Timer aktiv) | Deployed |
 | P0 | Wochenübersicht (Stunden pro Tag, Kunde, Projekt, mit Beschreibung) | Deployed |
 | P0 | Monatsauswertung (Summe pro Kunde, gearbeitet und verrechenbar, inkl. Beschreibungstexte) | Deployed |
-| P0 | CSV-Export aller Zeiten (jederzeit) | In Review |
+| P0 | CSV-Export aller Zeiten (jederzeit) | Approved |
 | P1 | Installierbare Web-App (PWA) für das Handy | Planned |
 
 ## Success Metrics

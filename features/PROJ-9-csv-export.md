@@ -1,6 +1,6 @@
 # PROJ-9: CSV-Export aller Zeiten
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-18
 
@@ -255,9 +255,9 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 ### Zusammenfassung
 - **Akzeptanzkriterien:** 26 geprüft: 23 bestanden, 1 Abweichung (BUG-2, niedrig), 2 nur teilweise prüfbar (echtes Excel, echter Screenreader).
-- **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig).
+- **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig). Nach dem Nachtest: BUG-1 behoben, BUG-2 (niedrig) offen.
 - **Sicherheit:** keine Befunde.
-- **Produktionsreif:** NEIN, solange BUG-1 offen ist. Es gibt keine kritischen oder hohen Fehler, aber einen spürbaren Tastatur-/Zugänglichkeitsmangel, der sich mit einer kleinen Änderung beheben lässt. Status bleibt **In Review**.
+- **Produktionsreif:** JA (nach dem Nachtest vom 2026-11-18, siehe unten): keine kritischen oder hohen Fehler, BUG-1 behoben, BUG-2 (niedrig) wartet auf eine Entscheidung. Status **Approved**. Vorbehalt: Die gesamte Browser-Suite konnte im Nachtest wegen eines übrig gebliebenen Test-Timers nicht sauber durchlaufen (siehe «Nachtest»).
 
 ### Automatisierte Tests
 - **Vitest:** 497 von 497 (davon 52 neu für PROJ-9: `csv.test.ts`, `export-all.test.ts`, `supabase-repository.test.ts`, `csv-export-ui.test.tsx`, `zeiten-ui.test.tsx`).
@@ -317,7 +317,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Erwartet:** Der Fokus bleibt auf dem Knopf (WCAG 2.4.3, Fokusreihenfolge).
 - **Tatsächlich:** Der Knopf ist während des Exports `disabled`; gesperrte Knöpfe verlieren den Fokus. Danach steht der Fokus auf `BODY` ganz oben («Zum Inhalt springen»). Wer per Tastatur oder Screenreader arbeitet, muss sich neu durchtabben.
 - **Korrekturhinweis (für /frontend):** Den Knopf während des Exports nicht mit `disabled` sperren, sondern `aria-disabled` setzen und Klicks ignorieren (die Doppelklick-Sperre besteht schon). Danach die Markierung `test.fail()` im Test «BUG-1» entfernen.
-- **Priorität:** Vor dem Deployment beheben. **Behoben** (Frontend, 2026-11-18); Bestätigung durch ein erneutes /qa steht aus.
+- **Priorität:** Vor dem Deployment beheben. **Behoben** (Frontend, 2026-11-18) und im Nachtest bestätigt.
 
 #### BUG-2: Abgelaufene Sitzung führt nicht zur Anmeldung
 - **Schweregrad:** Niedrig
@@ -348,6 +348,13 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 ### Regression
 - Vitest 497/497; Playwright-Gesamtsuite 316 grün (inkl. PROJ-1 bis 8 und 11) mit einem unstabilen Timer-Layout-Test (siehe oben); Seiten Zeiten, Woche und Monat (PROJ-5/7/8) unverändert grün.
+
+### Nachtest (2026-11-18, nach der Korrektur von BUG-1)
+- **BUG-1 bestätigt behoben:** Der Test «BUG-1 (behoben)» (Fokus bleibt nach dem Export auf dem Knopf, per Tastatur) läuft ohne `test.fail` grün; das Playwright-Projekt `export` lief nach der Korrektur 42 von 42 grün (inkl. axe hell/dunkel, Layout 320 bis 1440 px, Doppelklick mit `aria-disabled`).
+- **Vitest:** 497 von 497.
+- **BUG-2 (niedrig)** unverändert offen; keine neuen Bugs gefunden.
+- **Gesamtsuite im Nachtest nicht sauber durchgelaufen (kein Fehler von PROJ-9):** Im Testkonto lief ein Timer weiter, den ein Timer-Test (PROJ-6) übrig gelassen hatte (Kunde «Timer DB BYHRP», gestartet 2026-11-18 16:23 UTC). Solange ein Timer läuft, steht er in der Timer-Leiste und im Seitentitel («1:40 · T-TDBYHRP · …»). Dadurch schlugen 6 ältere Tests fehl (Seitentitel in PROJ-3, 5, 8; Texte «Allgemein» und «Beschreibung» in PROJ-3, 4 doppelt vorhanden); 209 Tests liefen deshalb nicht (Folge der Projektabhängigkeiten). 166 Tests liefen grün. Das Löschen des Test-Timers in der Datenbank wurde nicht freigegeben und deshalb nicht ausgeführt.
+- **Offen:** Timer im Testkonto beenden (in der App «Verwerfen» oder «Stopp»), danach die gesamte Browser-Suite erneut laufen lassen. Der vorherige vollständige Lauf (vor der Korrektur, 316 grün) war bis auf den unstabilen Timer-Layout-Test sauber; seither wurde nur der Export-Knopf geändert.
 
 ## Bugfixes nach QA (Frontend)
 **Stand 2026-11-18.**
