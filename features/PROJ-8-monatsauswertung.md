@@ -1,6 +1,6 @@
 # PROJ-8: Monatsauswertung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-17
 **Last Updated:** 2026-11-18
 
@@ -320,4 +320,11 @@ Bestanden: Monate mit Zeitumstellung, erster/letzter Tag, 24:00, zehn Einträge 
 PROJ-1 bis PROJ-7 laufen unverändert (336 von 336 grün, Chrome); die Navigation mit sechs Einträgen und die engere Tab-Leiste sind bei 320 und 375 px in den Tests von PROJ-5, PROJ-7 und PROJ-8 geprüft.
 
 ## Deployment
-_To be added by /deploy_
+- **Production URL:** https://time-tracker-light.vercel.app/monat
+- **Deployed:** 2026-11-18 (Auto-Deploy durch Push auf `main`, Commit `3171ffa`)
+- **Tag:** `v1.8.0-PROJ-8`
+- **Datenbank:** keine Migration nötig (die Monatsauswertung liest nur vorhandene Zeiteinträge)
+- **Geprüft vor dem Deploy:** `npm run build` ok, `npm run lint` ohne Fehler (eine alte Warnung in `use-toast.ts`), Vitest 444/444, Playwright (Chrome) 336/336 (mit zwei Workern)
+- **Geprüft in Produktion (Chrome, Testkonto, nur lesen):** `/monat` lädt mit Titel «Monat · Time Tracker Light», Navigation mit sechs Einträgen, Monatsüberschrift «November 2026», Blättern in den Vormonat, keine Konsolenfehler; ohne Anmeldung Weiterleitung auf `/login?next=%2Fmonat`
+- **Offen (bekannte Bugs, bewusst mit ausgeliefert):** BUG-1 (Medium): sehr langer Kundenname ohne Leerzeichen bricht im Kundenkopf nicht um, die Seite scrollt waagrecht. BUG-2 (Low): beim Zurückblättern in einen Monat sind die Projekte wieder aufgeklappt, wenn sie dort zuletzt aufgeklappt waren.
+- **Offen (sonst):** Firefox/Safari und echte Geräte ungetestet; kein Sentry, keine Lighthouse-Messung; Dezimalstunden im Export (PROJ-9) prüfen
