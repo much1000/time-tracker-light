@@ -19,13 +19,13 @@ export function BottomTabBar() {
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = isNavItemActive(pathname, href)
           return (
-            <li key={href} className="flex-1">
+            <li key={href} className="min-w-0 flex-1">
               {/* Aktiv = Fettschrift + Balken oben + Hintergrund, nie nur Farbe. */}
               <Link
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'relative flex min-h-14 flex-col items-center justify-center gap-1 px-2 text-xs ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'relative flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-xs ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   active
                     ? 'bg-accent font-bold text-accent-foreground before:absolute before:inset-x-3 before:top-0 before:h-1 before:rounded-b-full before:bg-brand-text'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

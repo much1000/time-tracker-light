@@ -18,12 +18,12 @@ describe('isNavItemActive', () => {
 })
 
 describe('navItems', () => {
-  it('enthält Start, Woche, Zeiten, Kunden und Status mit eindeutigen Adressen', () => {
-    expect(navItems.map((item) => item.label)).toEqual(['Start', 'Woche', 'Zeiten', 'Kunden', 'Status'])
+  it('enthält Start, Woche, Monat, Zeiten, Kunden und Status mit eindeutigen Adressen', () => {
+    expect(navItems.map((item) => item.label)).toEqual(['Start', 'Woche', 'Monat', 'Zeiten', 'Kunden', 'Status'])
     expect(new Set(navItems.map((item) => item.href)).size).toBe(navItems.length)
   })
 
-  it('passt in die Tab-Leiste (höchstens fünf Einträge)', () => {
-    expect(navItems.length).toBeLessThanOrEqual(5)
+  it('passt in die Tab-Leiste (höchstens sechs Einträge)', () => {
+    expect(navItems.length).toBeLessThanOrEqual(6)
   })
 })

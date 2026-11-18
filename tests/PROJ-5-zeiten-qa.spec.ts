@@ -238,7 +238,7 @@ test.describe('Navigation und Seitenschutz', () => {
   test('AC: «Zeiten» steht zwischen Start und Kunden, ist auf /zeiten aktiv, Seitentitel stimmt', async ({ page }) => {
     await page.goto('/')
     const nav = page.locator('div.bg-sidebar').getByRole('navigation', { name: 'Hauptnavigation' })
-    expect((await nav.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Zeiten', 'Kunden', 'Status'])
+    expect((await nav.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Monat', 'Zeiten', 'Kunden', 'Status'])
     await nav.getByRole('link', { name: 'Zeiten' }).click()
     await expect(page).toHaveURL(/\/zeiten$/)
     await expect(nav.getByRole('link', { name: 'Zeiten' })).toHaveAttribute('aria-current', 'page')
@@ -246,11 +246,11 @@ test.describe('Navigation und Seitenschutz', () => {
     await expect(page).toHaveTitle('Zeiten · Time Tracker Light')
   })
 
-  test('AC: Tab-Leiste am Handy hat fünf Einträge in derselben Reihenfolge, bei 320 px nichts abgeschnitten', async ({ page }) => {
+  test('AC: Tab-Leiste am Handy hat sechs Einträge in derselben Reihenfolge, bei 320 px nichts abgeschnitten', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 })
     await page.goto('/zeiten')
     const tabBar = page.getByRole('navigation', { name: 'Hauptnavigation' })
-    expect((await tabBar.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Zeiten', 'Kunden', 'Status'])
+    expect((await tabBar.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Monat', 'Zeiten', 'Kunden', 'Status'])
     await expect(tabBar.getByRole('link', { name: 'Zeiten' })).toHaveAttribute('aria-current', 'page')
     for (const el of await tabBar.locator('span').all()) {
       expect(await el.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)

@@ -261,7 +261,7 @@ test.describe('Navigation und Seitenschutz', () => {
   test('AC: «Woche» steht zwischen Start und Zeiten, ist auf /woche aktiv, Seitentitel stimmt', async ({ page }) => {
     await page.goto('/')
     const nav = page.locator('div.bg-sidebar').getByRole('navigation', { name: 'Hauptnavigation' })
-    expect((await nav.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Zeiten', 'Kunden', 'Status'])
+    expect((await nav.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Monat', 'Zeiten', 'Kunden', 'Status'])
     await nav.getByRole('link', { name: 'Woche' }).click()
     await expect(page).toHaveURL(/\/woche$/)
     await expect(nav.getByRole('link', { name: 'Woche' })).toHaveAttribute('aria-current', 'page')
@@ -270,11 +270,11 @@ test.describe('Navigation und Seitenschutz', () => {
   })
 
   for (const width of [320, 375]) {
-    test(`AC: Tab-Leiste am Handy bei ${width} px: fünf Einträge, jeder mindestens 44 px hoch und breit, nichts abgeschnitten`, async ({ page }) => {
+    test(`AC: Tab-Leiste am Handy bei ${width} px: sechs Einträge, jeder mindestens 44 px hoch und breit, nichts abgeschnitten`, async ({ page }) => {
       await page.setViewportSize({ width, height: 640 })
       await page.goto('/woche')
       const tabBar = page.getByRole('navigation', { name: 'Hauptnavigation' })
-      expect((await tabBar.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Zeiten', 'Kunden', 'Status'])
+      expect((await tabBar.getByRole('link').allInnerTexts()).map((text) => text.trim())).toEqual(['Start', 'Woche', 'Monat', 'Zeiten', 'Kunden', 'Status'])
       await expect(tabBar.getByRole('link', { name: 'Woche' })).toHaveAttribute('aria-current', 'page')
       for (const el of await tabBar.locator('span').all()) {
         expect(await el.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
