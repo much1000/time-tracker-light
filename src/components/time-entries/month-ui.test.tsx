@@ -262,6 +262,26 @@ describe('Seite «Monat»: Einträge pro Projekt', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Vormonat')).not.toBeInTheDocument()
   })
+
+  it('beim Zurückblättern in den Monat, in dem aufgeklappt wurde, sind die Projekte wieder zugeklappt', async () => {
+    const mus = await seedProject('MUS', 'Muster AG')
+    await entries.createEntry(entryInput(mus.projectId, { description: 'Aktuell' }))
+    const past = `${shiftMonth(currentMonth(), -1)}-15`
+    await entries.createEntry(entryInput(mus.projectId, { date: past, description: 'Vormonat' }))
+    const { rerender } = render(<MonthView />)
+    click(await screen.findByRole('button', { name: 'Alle aufklappen' }))
+    expect(await screen.findByText('Aktuell')).toBeInTheDocument()
+
+    search = new URLSearchParams({ monat: shiftMonth(currentMonth(), -1) })
+    rerender(<MonthView />)
+    expect(await screen.findByRole('button', { name: /Allgemein/ })).toHaveAttribute('aria-expanded', 'false')
+
+    search = new URLSearchParams()
+    rerender(<MonthView />)
+    const trigger = await screen.findByRole('button', { name: /Allgemein/ })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Aktuell')).not.toBeInTheDocument()
+  })
 })
 
 describe('Seite «Monat»: Navigation', () => {

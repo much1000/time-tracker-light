@@ -520,8 +520,7 @@ test.describe('Einträge pro Projekt (Mai 2012)', () => {
     await expect(projectButton(customerSection(page, A), 'Allgemein')).toHaveAttribute('aria-expanded', 'false')
   })
 
-  test('BUG-2 (Low, bekannt): Zurück in den Monat, in dem aufgeklappt wurde, sind die Projekte wieder zugeklappt', async ({ page }) => {
-    test.fail(true, 'BUG-2: Der Aufklapp-Zustand merkt sich den Monat und gilt beim Zurückblättern wieder (Spec: im neuen Monat zugeklappt)')
+  test('BUG-2 (behoben): Zurück in den Monat, in dem aufgeklappt wurde, sind die Projekte wieder zugeklappt', async ({ page }) => {
     await openMonth(page, MAI)
     await expandAll(page)
     await page.getByRole('button', { name: 'Vorheriger Monat' }).click()
@@ -706,8 +705,7 @@ test.describe('Layout und Barrierefreiheit', () => {
   }
 
   for (const width of [320, 375, 768]) {
-    test(`BUG-1 (Medium, bekannt): sehr langer Kundenname ohne Leerzeichen bricht bei ${width} px um, kein horizontales Scrollen`, async ({ page }) => {
-      test.fail(true, 'BUG-1: Der Kundenname im Abschnittskopf bricht nicht um und verbreitert die Seite')
+    test(`BUG-1 (behoben): sehr langer Kundenname ohne Leerzeichen bricht bei ${width} px um, kein horizontales Scrollen`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
       await openMonth(page, MAI)
       await expect(customerSection(page, C)).toBeVisible()

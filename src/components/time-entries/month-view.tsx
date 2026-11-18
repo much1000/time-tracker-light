@@ -24,11 +24,6 @@ interface LoadedMonth extends MonthEntries {
   month: string
 }
 
-interface OpenState {
-  month: string
-  projectIds: string[]
-}
-
 // Seite «Monat»: Summen pro Kunde und Projekt, gearbeitet und verrechenbar (exakt und auf 15 Minuten
 // aufgerundet), mit den Einträgen samt Beschreibung unter jedem Projekt (PROJ-8). Nur lesen.
 // Der Monat steht in der Adresse (?monat=2026-11).
@@ -52,15 +47,20 @@ export function MonthView() {
   const summary = useMemo(() => (current ? buildMonthSummary(month, current.entries) : null), [current, month])
 
   const [creating, setCreating] = useState(false)
-  // Aufgeklappte Projekte gelten nur für den Monat, in dem sie aufgeklappt wurden
-  const [openState, setOpenState] = useState<OpenState>({ month, projectIds: [] })
-  const openProjects = openState.month === month ? openState.projectIds : []
+  // Aufgeklappte Projekte gelten nur für den angezeigten Monat: Bei jedem Monatswechsel (auch beim
+  // Zurückblättern) sind alle wieder zugeklappt. Zurücksetzen während des Renderns (kein Effekt nötig).
+  const [openProjects, setOpenProjects] = useState<string[]>([])
+  const [openMonth, setOpenMonth] = useState(month)
+  if (openMonth !== month) {
+    setOpenMonth(month)
+    setOpenProjects([])
+  }
   const headingRef = useRef<HTMLHeadingElement>(null)
 
   const allProjectIds = summary ? summary.customers.flatMap((customer) => customer.projects.map((p) => p.projectId)) : []
 
   function setOpen(projectIds: string[]) {
-    setOpenState({ month, projectIds })
+    setOpenProjects(projectIds)
   }
 
   function toggleProject(projectId: string, open: boolean) {

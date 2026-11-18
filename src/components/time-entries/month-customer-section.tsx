@@ -22,7 +22,7 @@ export function MonthCustomerSection({ customer, openProjects, onToggleProject, 
         <CardContent className="space-y-4 p-4">
           <div className="space-y-2">
             <h3 id={headingId} className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-              <span className="break-words">
+              <span className="min-w-0 [overflow-wrap:anywhere]">
                 <span className="font-mono text-base text-muted-foreground">{customer.customerCode}</span>
                 <span className="text-muted-foreground"> · </span>
                 {customer.customerName}
@@ -74,7 +74,7 @@ function ProjectItem({
               className="group h-auto min-h-11 w-full justify-between gap-3 whitespace-normal px-3 py-2 text-left"
             >
               <span className="min-w-0 space-y-0.5">
-                <span className="flex flex-wrap items-center gap-2 break-words font-medium">
+                <span className="flex flex-wrap items-center gap-2 font-medium [overflow-wrap:anywhere]">
                   {project.projectName}
                   {(project.projectArchived || customer.customerArchived) && <ArchivedBadge />}
                 </span>

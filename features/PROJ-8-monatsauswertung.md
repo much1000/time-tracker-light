@@ -279,7 +279,7 @@ und werden nirgends gespeichert.
 ### Automatisierte Tests
 - **Vitest:** 444 von 444 grün (Rundung 16, Monatszusammenfassung 12, Repositories, UI 20).
 - **Playwright (Chrome, Produktionsbuild):** neue Datei `tests/PROJ-8-monat-qa.spec.ts` mit 43 Tests; gesamte Suite (PROJ-1 bis PROJ-8) 336 von 336 grün (mit `--workers=2`).
-- Die drei Tests `BUG-1` (je 320/375/768 px) und `BUG-2` sind mit `test.fail` markiert: Sie bestehen, solange der Fehler da ist, und melden sich, sobald er behoben ist (dann `test.fail` entfernen).
+- Die drei Tests `BUG-1` (je 320/375/768 px) und `BUG-2` waren zunächst mit `test.fail` markiert (bekannter Fehler); nach den Bugfixes ist die Markierung entfernt und sie laufen als normale Tests.
 - **Hinweis Stabilität:** Bei voller Parallelität (4 Worker) und vielen offenen Browsern auf dem Rechner kam es zu wechselnden Zeitüberschreitungen (30 s), vor allem bei `/status` (PROJ-1/PROJ-11/PROJ-5). Mit zwei Workern lief alles durch. Kein Zusammenhang mit PROJ-8; der Fehler aus dem Frontend-Schritt (PROJ-4, Pfeiltaste) trat nicht mehr auf.
 - **Echte Datenbank:** Die Monatsabfrage wurde gegen Supabase geprüft (Monatsgrenzen, Schaltjahr 2012-02, Zeitumstellung 2012-03 und 2012-10, 24:00 am Monatsletzten, mehr als 1000 Einträge). Summen der Seite stimmen minutengenau mit einer unabhängigen Datenbankabfrage überein.
 
@@ -300,8 +300,8 @@ und werden nirgends gespeichert.
 Bestanden: Monate mit Zeitumstellung, erster/letzter Tag, 24:00, zehn Einträge zu 3 Minuten (0:30), 5 Minuten je zwei Projekte (0:30 gerundet bei 0:10 exakt), archivierter Kunde/Projekt, HTML/Sonderzeichen als Text (kein `img`, kein Skript), Zeilenumbrüche, sehr langer Text, mehr als 1000 Einträge (Hinweis «Zahlen unvollständig», Summe 16:40 der ersten 1000), Ladefehler. Nicht bestanden: sehr langer Kundenname ohne Leerzeichen (BUG-1).
 
 ### Bugs
-- **BUG-1 (Medium): Sehr langer Kundenname ohne Leerzeichen bricht nicht um.** Der Abschnittskopf eines Kunden (`month-customer-section.tsx`, Überschrift mit `span.break-words` in einem `flex flex-wrap`) verbreitert die Seite, sodass sie waagrecht scrollt. Auftreten bei 320, 375 und 768 px (Name mit rund 95 Zeichen am Stück: Seitenbreite bis rund 987 px bei 320 px). Spec-Randfall «Kunden- oder Projektname sehr lang: bricht um» verletzt. Reproduktion: Kunde mit Namen aus ~95 Zeichen ohne Leerzeichen anlegen, Eintrag erfassen, `/monat` bei 320 px öffnen. Wahrscheinliche Ursache: `break-words` allein verkleinert die Mindestbreite des Flex-Elements nicht; `min-w-0` und `[overflow-wrap:anywhere]` am Namens-Element dürften genügen. Dasselbe prüfen bei Projektname im Knopf der Projektzeile (dort mit `min-w-0` bereits angelegt, im Test unauffällig). Test: `BUG-1` in `tests/PROJ-8-monat-qa.spec.ts`.
-- **BUG-2 (Low): Aufklapp-Zustand kehrt beim Zurückblättern zurück.** Wer im Mai Projekte aufklappt, in den April und wieder in den Mai blättert, sieht im Mai wieder aufgeklappte Projekte (der Zustand merkt sich den Monat). Spec: «im neuen Monat alle Projekte wieder zugeklappt». Im April selbst stimmt es. Ursache: `OpenState` in `month-view.tsx` behält `month` und gilt wieder, sobald der Monat gleich ist. Kein Datenproblem. Test: `BUG-2`.
+- **BUG-1 (Medium, behoben am 2026-11-18, siehe Bugfixes): Sehr langer Kundenname ohne Leerzeichen bricht nicht um.** Der Abschnittskopf eines Kunden (`month-customer-section.tsx`, Überschrift mit `span.break-words` in einem `flex flex-wrap`) verbreitert die Seite, sodass sie waagrecht scrollt. Auftreten bei 320, 375 und 768 px (Name mit rund 95 Zeichen am Stück: Seitenbreite bis rund 987 px bei 320 px). Spec-Randfall «Kunden- oder Projektname sehr lang: bricht um» verletzt. Reproduktion: Kunde mit Namen aus ~95 Zeichen ohne Leerzeichen anlegen, Eintrag erfassen, `/monat` bei 320 px öffnen. Wahrscheinliche Ursache: `break-words` allein verkleinert die Mindestbreite des Flex-Elements nicht; `min-w-0` und `[overflow-wrap:anywhere]` am Namens-Element dürften genügen. Dasselbe prüfen bei Projektname im Knopf der Projektzeile (dort mit `min-w-0` bereits angelegt, im Test unauffällig). Test: `BUG-1` in `tests/PROJ-8-monat-qa.spec.ts`.
+- **BUG-2 (Low, behoben am 2026-11-18, siehe Bugfixes): Aufklapp-Zustand kehrt beim Zurückblättern zurück.** Wer im Mai Projekte aufklappt, in den April und wieder in den Mai blättert, sieht im Mai wieder aufgeklappte Projekte (der Zustand merkt sich den Monat). Spec: «im neuen Monat alle Projekte wieder zugeklappt». Im April selbst stimmt es. Ursache: `OpenState` in `month-view.tsx` behält `month` und gilt wieder, sobald der Monat gleich ist. Kein Datenproblem. Test: `BUG-2`.
 
 ### Sicherheit (Red Team)
 - Ohne Anmeldung: `/monat` und `/monat?monat=2012-05` führen zur Anmeldung, keine Daten sichtbar (getestet).
@@ -319,6 +319,14 @@ Bestanden: Monate mit Zeitumstellung, erster/letzter Tag, 24:00, zehn Einträge 
 ### Regression
 PROJ-1 bis PROJ-7 laufen unverändert (336 von 336 grün, Chrome); die Navigation mit sechs Einträgen und die engere Tab-Leiste sind bei 320 und 375 px in den Tests von PROJ-5, PROJ-7 und PROJ-8 geprüft.
 
+## Bugfixes nach QA (Frontend)
+**Behoben am 2026-11-18** (nach dem Deploy; Auslieferung mit dem nächsten Push auf `main`).
+
+- **BUG-1 (Medium):** `month-customer-section.tsx`: Das Namens-Element im Kundenkopf hat `min-w-0` und `[overflow-wrap:anywhere]` statt `break-words`, der Projektname im Knopf der Projektzeile ebenfalls `[overflow-wrap:anywhere]`. Ein sehr langer Name ohne Leerzeichen bricht jetzt um, die Seite scrollt bei 320, 375 und 768 px nicht mehr waagrecht.
+- **BUG-2 (Low):** `month-view.tsx`: Die aufgeklappten Projekte werden beim Monatswechsel während des Renderns zurückgesetzt (kein Merken des Monats mehr). Auch beim Zurückblättern in einen früher aufgeklappten Monat sind alle Projekte zugeklappt.
+- **Tests:** Vitest 445 von 445 (neu: «beim Zurückblättern … zugeklappt» in `month-ui.test.tsx`). Playwright (Chrome, Produktionsbuild): `tests/PROJ-8-monat-qa.spec.ts` ohne `test.fail`-Markierung, zusammen mit PROJ-5- und PROJ-7-QA 129 von 129 grün. `tsc` ohne Fehler, Lint nur die alte Warnung.
+- **Nicht erneut geprüft:** gesamte Browser-Suite (nur PROJ-5, PROJ-7, PROJ-8), Firefox/Safari.
+
 ## Deployment
 - **Production URL:** https://time-tracker-light.vercel.app/monat
 - **Deployed:** 2026-11-18 (Auto-Deploy durch Push auf `main`, Commit `3171ffa`)
@@ -326,5 +334,5 @@ PROJ-1 bis PROJ-7 laufen unverändert (336 von 336 grün, Chrome); die Navigatio
 - **Datenbank:** keine Migration nötig (die Monatsauswertung liest nur vorhandene Zeiteinträge)
 - **Geprüft vor dem Deploy:** `npm run build` ok, `npm run lint` ohne Fehler (eine alte Warnung in `use-toast.ts`), Vitest 444/444, Playwright (Chrome) 336/336 (mit zwei Workern)
 - **Geprüft in Produktion (Chrome, Testkonto, nur lesen):** `/monat` lädt mit Titel «Monat · Time Tracker Light», Navigation mit sechs Einträgen, Monatsüberschrift «November 2026», Blättern in den Vormonat, keine Konsolenfehler; ohne Anmeldung Weiterleitung auf `/login?next=%2Fmonat`
-- **Offen (bekannte Bugs, bewusst mit ausgeliefert):** BUG-1 (Medium): sehr langer Kundenname ohne Leerzeichen bricht im Kundenkopf nicht um, die Seite scrollt waagrecht. BUG-2 (Low): beim Zurückblättern in einen Monat sind die Projekte wieder aufgeklappt, wenn sie dort zuletzt aufgeklappt waren.
+- **Offen zum Deploy-Zeitpunkt (bewusst mit ausgeliefert, inzwischen behoben, siehe Bugfixes):** BUG-1 (Medium): sehr langer Kundenname ohne Leerzeichen bricht im Kundenkopf nicht um, die Seite scrollt waagrecht. BUG-2 (Low): beim Zurückblättern in einen Monat sind die Projekte wieder aufgeklappt, wenn sie dort zuletzt aufgeklappt waren.
 - **Offen (sonst):** Firefox/Safari und echte Geräte ungetestet; kein Sentry, keine Lighthouse-Messung; Dezimalstunden im Export (PROJ-9) prüfen
