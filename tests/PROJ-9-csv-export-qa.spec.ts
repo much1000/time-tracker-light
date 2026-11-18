@@ -540,7 +540,7 @@ test.describe('Fehlerfälle und Zustände', () => {
     await openZeiten(page)
     const button = exportButton(page)
     await button.dblclick()
-    await expect(button).toBeDisabled()
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
     await expect(button).toHaveAttribute('aria-busy', 'true')
     await expect(button).toContainText('Wird exportiert')
     await page.waitForEvent('download')
@@ -561,11 +561,8 @@ test.describe('Fehlerfälle und Zustände', () => {
   })
 })
 
-// BUG-1 (QA): Der Knopf ist während des Exports «disabled»; ein gesperrter Knopf verliert den Fokus, danach steht
-// der Fokus auf der Seite ganz oben. Erwartet (nach der Korrektur): Fokus bleibt auf dem Knopf. Bis dahin als
-// bekannter Fehler markiert (test.fail); nach der Korrektur die Markierung entfernen.
-test('BUG-1: Nach dem Export per Tastatur bleibt der Fokus auf dem Knopf', async ({ page }) => {
-  test.fail()
+// BUG-1 (QA, behoben): Der Knopf war während des Exports «disabled» und verlor dadurch den Fokus.
+test('BUG-1 (behoben): Nach dem Export per Tastatur bleibt der Fokus auf dem Knopf', async ({ page }) => {
   await openZeiten(page)
   await exportButton(page).focus()
   const [download] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')])

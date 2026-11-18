@@ -52,7 +52,16 @@ export function CsvExportButton() {
   }
 
   return (
-    <Button type="button" variant="outline" onClick={run} disabled={running} aria-busy={running}>
+    // Nicht «disabled»: Ein gesperrter Knopf verliert den Fokus. «aria-disabled» hält den Fokus (Tastatur,
+    // Screenreader); Klicks während des Exports ignoriert die Sperre in run().
+    <Button
+      type="button"
+      variant="outline"
+      onClick={run}
+      aria-disabled={running}
+      aria-busy={running}
+      className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+    >
       {running ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
       {running ? 'Wird exportiert …' : 'Als CSV exportieren'}
     </Button>

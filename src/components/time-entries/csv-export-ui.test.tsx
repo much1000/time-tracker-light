@@ -107,13 +107,15 @@ describe('Knopf «Als CSV exportieren»', () => {
     fireEvent.click(button())
 
     const running = button()
-    expect(running).toBeDisabled()
+    expect(running).toHaveAttribute('aria-disabled', 'true')
+    expect(running).not.toBeDisabled()
     expect(running).toHaveAttribute('aria-busy', 'true')
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
     expect(spy).toHaveBeenCalledTimes(1)
     expect(clicked).toHaveLength(1)
     expect(button()).toBeEnabled()
     expect(button()).toHaveAttribute('aria-busy', 'false')
+    expect(button()).toHaveAttribute('aria-disabled', 'false')
   })
 
   it('zeigt bei nicht erreichbaren Daten eine Fehlermeldung, lädt nichts herunter und gibt den Knopf frei', async () => {

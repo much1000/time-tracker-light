@@ -311,13 +311,13 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 ### Bugs
 
-#### BUG-1: Nach dem Export per Tastatur ist der Fokus weg
+#### BUG-1: Nach dem Export per Tastatur ist der Fokus weg (behoben, siehe «Bugfixes nach QA»)
 - **Schweregrad:** Mittel (Zugänglichkeit)
 - **Schritte:** 1. /zeiten öffnen. 2. Mit Tab auf «Als CSV exportieren». 3. Enter drücken. 4. Nach dem Download prüfen, wo der Fokus steht.
 - **Erwartet:** Der Fokus bleibt auf dem Knopf (WCAG 2.4.3, Fokusreihenfolge).
 - **Tatsächlich:** Der Knopf ist während des Exports `disabled`; gesperrte Knöpfe verlieren den Fokus. Danach steht der Fokus auf `BODY` ganz oben («Zum Inhalt springen»). Wer per Tastatur oder Screenreader arbeitet, muss sich neu durchtabben.
 - **Korrekturhinweis (für /frontend):** Den Knopf während des Exports nicht mit `disabled` sperren, sondern `aria-disabled` setzen und Klicks ignorieren (die Doppelklick-Sperre besteht schon). Danach die Markierung `test.fail()` im Test «BUG-1» entfernen.
-- **Priorität:** Vor dem Deployment beheben.
+- **Priorität:** Vor dem Deployment beheben. **Behoben** (Frontend, 2026-11-18); Bestätigung durch ein erneutes /qa steht aus.
 
 #### BUG-2: Abgelaufene Sitzung führt nicht zur Anmeldung
 - **Schweregrad:** Niedrig
@@ -348,6 +348,14 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 ### Regression
 - Vitest 497/497; Playwright-Gesamtsuite 316 grün (inkl. PROJ-1 bis 8 und 11) mit einem unstabilen Timer-Layout-Test (siehe oben); Seiten Zeiten, Woche und Monat (PROJ-5/7/8) unverändert grün.
+
+## Bugfixes nach QA (Frontend)
+**Stand 2026-11-18.**
+
+- **BUG-1 (mittel) behoben:** Der Knopf «Als CSV exportieren» wird während des Exports nicht mehr mit `disabled` gesperrt, sondern mit `aria-disabled` (gedimmt, Cursor «nicht erlaubt»). Dadurch bleibt der Fokus nach dem Export auf dem Knopf. Klicks während des Exports ignoriert weiterhin die Sperre in der Komponente (kein zweiter Export). Geändert: `csv-export-button.tsx`.
+- **BUG-2 (niedrig) offen:** Abgelaufene Sitzung zeigt die Meldung, leitet aber nicht weiter. Empfehlung: Spec anpassen (Meldung statt Weiterleitung, wie in der übrigen App); Entscheidung steht aus.
+- **Tests:** Vitest 497/497 (Test «sperrt den Knopf» prüft jetzt `aria-disabled` statt `disabled`, plus Zustand danach). Playwright `export`-Projekt 42/42: der Test «BUG-1 (behoben)» läuft ohne `test.fail` grün, ebenso der Doppelklick-Test mit `aria-disabled`. `tsc` ohne Befund, ESLint nur die alte Warnung in `use-toast.ts`, `npm run build` erfolgreich.
+- **Nicht erneut gelaufen:** die gesamte Browser-Suite (nur das Projekt `export`); Firefox/Safari weiter ungetestet.
 
 ## Deployment
 _To be added by /deploy_
