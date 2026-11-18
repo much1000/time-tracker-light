@@ -1,6 +1,6 @@
 # PROJ-9: CSV-Export aller Zeiten
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-18
 
@@ -104,7 +104,7 @@
 
 ## Open Questions
 - [ ] **Leerer Export:** Soll bei null Einträgen eine Datei nur mit Kopfzeile heruntergeladen werden, oder nur die Meldung «Keine Zeiten vorhanden» erscheinen? Vorschlag: keine Datei, nur Meldung (nichts zu exportieren).
-- [ ] **Einträge über Mitternacht:** Sind solche Einträge in PROJ-4 überhaupt erlaubt? Falls ja, Datum = Startdatum (bei /architecture prüfen).
+- [x] **Einträge über Mitternacht:** Geklärt bei /architecture: In PROJ-4 nicht möglich (Nachtarbeit = zwei Einträge). Einzige Besonderheit: Der Timer kann einen Eintrag mit Ende «24:00» erzeugen; dieser Wert steht unverändert in der Spalte «Bis».
 - [ ] **Datumsformat:** TT.MM.JJJJ (Excel erkennt es als Datum) statt JJJJ-MM-TT. Vorschlag wie in der Spec festgelegt; auf Wunsch änderbar.
 - [ ] **Entschärfung von Formelzeichen:** Vorangestelltes Zeichen sichtbar (z. B. Apostroph) in Excel; akzeptabel oder störend? Vorschlag: akzeptieren, nur bei betroffenen Texten.
 
@@ -128,11 +128,93 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Datei entsteht im Browser, keine neue Server-Route | Die Anmeldung und alle Daten laufen schon über den Browser und die Datenbank-Zugriffsregeln; ein Server-Weg wäre eine zweite Zugriffsstelle mit eigenem Risiko und ohne Nutzen | 2026-11-18 |
+| Keine Datenbank-Änderung | Alle Felder liegen in den Zeiteinträgen; Kunde und Projekt kommen über die bestehende Verknüpfung | 2026-11-18 |
+| Seitenweises Laden in 1000er-Blöcken mit eindeutiger Reihenfolge | Datenbank liefert höchstens 1000 Zeilen pro Antwort; ohne eindeutige Sortierung (Datum, Startzeit, Anlegezeit, Kennung) könnten bei Seitenwechsel Zeilen doppelt oder gar nicht erscheinen | 2026-11-18 |
+| Gesamtzahl nach dem Laden gegenprüfen, bei Abweichung abbrechen | Wird während des Exports ein Eintrag geändert, stimmt die Datei nicht; lieber Fehlermeldung und neu starten als stillschweigend falsche Datei (PRD-Kriterium 4) | 2026-11-18 |
+| Format-Logik als eigene, reine Rechenfunktion (Maskieren, Dezimalkomma, Formelschutz, Datum) | Einzeln testbar mit allen Grenzfällen; getrennt von Oberfläche und Datenbank | 2026-11-18 |
+| Stunden = Minuten ÷ 60, auf zwei Nachkommastellen kaufmännisch gerundet; Minutenspalten sind massgebend | Rundungsabweichungen von wenigen Hundertstel in der Stundenspalte sind unvermeidlich; die exakten Minuten bleiben daneben | 2026-11-18 |
+| Formelschutz: Apostroph vor Texte, die mit `=`, `+`, `-`, `@`, Tabulator oder Zeilenumbruch beginnen | Verhindert Formel-Einschleusung in Excel; betrifft nur Textspalten, nie Zahlen | 2026-11-18 |
+| Keine neuen Pakete | Eine CSV-Datei mit festem Format ist mit Bordmitteln des Browsers einfach und zuverlässiger als eine Fremdbibliothek | 2026-11-18 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Der Export ist eine **reine Auslese der bestehenden Zeiteinträge**. Es entstehen keine neue Tabelle, keine neuen Zugriffsregeln, keine Datenbank-Änderung und keine neue Server-Route. Neu sind: ein Knopf auf der Seite «Zeiten», eine Abfrage «alle Einträge, seitenweise» in der Datenschicht und ein kleiner Baustein, der aus den Einträgen den Dateitext macht. Der Browser baut die Datei und löst den Download aus. **Backend-Aufwand: klein**, nur Datenschicht, kein SQL.
+
+### A) Komponentenstruktur
+```
+Seite /zeiten (besteht, PROJ-5)
++-- Kopfzeile: Überschrift «Zeiten»
+    +-- Knopf «Zeit erfassen» (besteht)
+    +-- NEU Knopf «Als CSV exportieren»
+         - Ruhezustand: Symbol + Text
+         - Läuft: Ladeanzeige, Knopf gesperrt, «wird exportiert», für Screenreader angesagt
+         - Fertig: kurze Meldung «n Zeilen exportiert», Download startet
+         - Fehler: kurze Fehlermeldung, Knopf wieder frei
+         - Keine Zeiten: Meldung «Keine Zeiten vorhanden», keine Datei
+```
+Es gibt keine neue Seite und keine Auswahl. Auf Handy, Tablet und Laptop ist es derselbe Knopf (mindestens 44 × 44 px); in der Kopfzeile umbricht er bei schmaler Breite unter «Zeit erfassen».
+
+### B) Datenmodell (in Alltagssprache)
+**Es werden keine neuen Daten gespeichert.** Der Export liest die Zeiteinträge (PROJ-4) samt Kunde und Projekt und schreibt sie in eine Datei, die nirgends abgelegt wird.
+
+```
+Eine Zeile der Datei entspricht einem Eintrag:
+- Datum (TT.MM.JJJJ)
+- Kunde (Name), Kundenkürzel, Projekt (Name)  -> auch archivierte Kunden/Projekte
+- Beschreibung (kann leer sein, kann Zeilenumbrüche und Semikolons enthalten)
+- Von, Bis (leer bei Einträgen nur mit Dauer; «24:00» möglich, wenn ein Timer über Mitternacht gelaufen ist)
+- Dauer in Minuten (ganze Zahl) und in Stunden (Dezimalkomma, zwei Nachkommastellen)
+- Verrechenbar in Minuten und in Stunden
+
+Reihenfolge der Zeilen: Datum aufsteigend, dann Startzeit (ohne Uhrzeit danach),
+dann Anlegezeit; bei völliger Gleichheit die Eintragskennung (damit die Reihenfolge nie wackelt).
+
+Datei: Kopfzeile + eine Zeile je Eintrag, Semikolon-getrennt, UTF-8 mit BOM, Windows-Zeilenende.
+Name: zeiten-JJJJ-MM-TT.csv (heutiges Datum nach Zürcher Uhr).
+Quelle: bestehende Tabelle der Zeiteinträge in Supabase; Zugriffsregeln unverändert
+(nur eigene Einträge).
+```
+
+### C) Ablauf beim Klick (in Worten)
+1. Knopf sperren, Ladezustand zeigen.
+2. Einträge **in Blöcken zu je 1000** holen, bis alle da sind. Mit jedem Block wird auch die Gesamtzahl mitgeliefert.
+3. Prüfen, dass die Zahl der geholten Zeilen der Gesamtzahl entspricht. Weicht sie ab (z. B. weil auf einem anderen Gerät währenddessen etwas geändert wurde), wird **nichts** heruntergeladen; es erscheint eine Fehlermeldung mit dem Hinweis, es nochmals zu versuchen.
+4. Keine Einträge: Meldung «Keine Zeiten vorhanden», keine Datei.
+5. Sonst Dateitext bauen, Download auslösen, Bestätigung mit Zeilenzahl zeigen, Knopf freigeben.
+Bricht das Laden ab (Netz, abgelaufene Sitzung), gelten die bestehenden Fehlermeldungen der Datenschicht (Sitzung → zurück zur Anmeldung).
+
+### D) Neue Bausteine (ohne Code)
+- **Datenschicht:** neue Methode «Einträge in Blöcken holen» in der Schnittstelle der Zeiteinträge, mit Supabase-Umsetzung und Platzhalter für Tests. Jeder Eintrag trägt Kunde, Kürzel, Projekt (mit Archiv-Hinweisen wie bei Woche/Monat). Sie sortiert in der **Datenbank** (nicht im Browser), damit die Blöcke lückenlos aneinanderpassen.
+- **Format-Baustein «CSV»** (reine Rechenfunktionen, einzeln getestet): Kopfzeile, Zeile je Eintrag, Maskierung von Semikolon/Anführungszeichen/Zeilenumbrüchen, Formelschutz, Datum, Dezimalkomma, BOM, Dateiname. Grenzfälle: leere Beschreibung, `=SUMME(A1)`, `@x`, `-1`, Beschreibung mit Zeilenumbruch, 0 Minuten, 24:00, 1440 Minuten, Dauer 1 Minute (0,02 h).
+- **Export-Ablauf** (kleiner Baustein der Oberfläche, hängt am Knopf): Sperre gegen Doppelklick, Zustände, Meldungen, Download.
+- **Wiederverwendung:** Fehlertexte und Fehlerarten der Zeiteinträge, Meldungen (Toast), Knopf, Ladezustand, Zürcher Datumsfunktion, Spaltenwerte der Einträge. Die Rundung auf 15 Minuten wird **nicht** verwendet (Produktentscheidung).
+
+### E) Technische Entscheidungen (begründet)
+- **Im Browser statt auf dem Server:** Anmeldung und Datenzugriff laufen in der ganzen App über den Browser. So gelten automatisch dieselben Zugriffsregeln, es gibt keinen zusätzlichen Zugang zu den Daten und nichts zu betreiben (Vercel Hobby, kostenlos).
+- **Blockweise laden statt «alles auf einmal»:** Die Datenbank gibt höchstens 1000 Zeilen pro Antwort heraus (bekannte Grenze aus PROJ-5/PROJ-8). Würde man das ignorieren, fehlten Zeilen ohne jede Meldung.
+- **Prüfen statt hoffen:** Die Gesamtzahl wird gegengeprüft. Eine Datei, die nicht stimmt, ist schlimmer als keine Datei.
+- **Format von Hand statt Bibliothek:** Das Format ist fest (elf Spalten, ein Trennzeichen); die Regeln (Anführungszeichen verdoppeln, Zeilenumbrüche, Formelschutz) sind klein und gut testbar. Eine Fremdbibliothek brächte nur Gewicht und Abhängigkeit.
+- **Formelschutz:** Beschreibungen sind freier Text. Beginnt er mit `=`, `+`, `-` oder `@`, würde Excel ihn als Formel ausführen. Darum wird ein Apostroph vorangestellt. Das ist die gängige Empfehlung und betrifft nur Textspalten.
+- **Dezimalstunden nur zur Anzeige:** Gerechnet wird weiter in ganzen Minuten (wie überall in der App). Stunden entstehen erst beim Schreiben der Datei; die Minutenspalten sind die genauen Werte.
+- **Download über einen temporären Link im Browser:** Funktioniert in Chrome, Firefox und Safari ohne Zusatz. Auf dem iPhone fragt Safari ggf. nach dem Speicherort.
+
+### F) Abhängigkeiten (Pakete)
+Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toast, Symbole).
+
+### G) Reihenfolge der Umsetzung (Hinweis für /backend und /frontend)
+1. **/backend:** Blockweise Abfrage in Schnittstelle, Supabase-Umsetzung und Platzhalter; Format-Baustein «CSV» mit Tests; Test mit mehr als 1000 Einträgen und Änderung während des Exports.
+2. **/frontend:** Knopf mit Zuständen und Meldungen auf «Zeiten», Download, Oberflächentests.
+3. **/qa:** Öffnen in Excel (Schweizer Einstellungen) und einer zweiten Anwendung, über 1000 Einträge, Handy 320 px, Hell/Dunkel, Screenreader-Ansage.
+
+### H) Risiken
+- **Safari/iPhone:** Der Download einer erzeugten Datei verhält sich je nach Version leicht anders (Vorschau statt Speichern). In /qa auf echtem Gerät prüfen; Ausweichen ist möglich, ohne die Daten zu ändern.
+- **Änderung während des Exports:** Wird durch die Gegenprüfung erkannt und führt zu einer Fehlermeldung, nicht zu einer falschen Datei.
+- **Sehr grosse Datenmengen:** Für eine Einzelperson (einige Tausend Einträge pro Jahr) unkritisch; Datei entsteht im Arbeitsspeicher.
+- **Sortierung in der Datenbank:** Ohne passenden Index wäre sie bei sehr vielen Zeilen langsamer; bei dieser Grössenordnung kein Problem, wird in /backend mit der echten Datenbank gemessen.
 
 ## QA Test Results
 _To be added by /qa_
