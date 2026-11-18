@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/customers/load-states'
+import { CsvExportButton } from '@/components/time-entries/csv-export-button'
 import { EntryRow } from '@/components/time-entries/entry-row'
 import { Sums } from '@/components/time-entries/sums'
 import { TimeEntryFormDialog } from '@/components/time-entries/time-entry-form-dialog'
@@ -106,10 +107,13 @@ export function ZeitenView() {
         <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
           Zeiten
         </h1>
-        <Button type="button" onClick={() => setCreating(true)}>
-          <Plus aria-hidden="true" />
-          Zeit erfassen
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <CsvExportButton />
+          <Button type="button" onClick={() => setCreating(true)}>
+            <Plus aria-hidden="true" />
+            Zeit erfassen
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-2">

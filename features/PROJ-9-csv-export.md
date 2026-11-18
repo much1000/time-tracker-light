@@ -232,6 +232,22 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - Knopf «Als CSV exportieren» auf `/zeiten`: Ablauf `loadAllEntries` → bei null Einträgen Meldung «Keine Zeiten vorhanden» (keine Datei) → `entriesToCsv` → Download als Blob mit `csvFileName(todayInZurich())`, Bestätigung mit Zeilenzahl, Sperre gegen Doppelklick, Fehlermeldung über `describeTimeEntryError`.
 - Noch nicht geprüft: die Abfrage gegen die echte Datenbank (Sortierung mit leeren Startzeiten, Bereich über 1000 Zeilen, Zeit bei mehreren Tausend Einträgen) und das Öffnen in Excel; beides in /qa.
 
+## Implementation Notes (Frontend)
+**Stand 2026-11-18.** Nur Oberfläche; Datenschicht und CSV-Baustein aus dem Backend-Schritt unverändert.
+
+### Was gebaut wurde
+- **Komponente** `src/components/time-entries/csv-export-button.tsx`: Knopf «Als CSV exportieren» (shadcn `Button`, Umriss, Symbol «Download»). Ablauf: `loadAllEntries` → bei null Einträgen Meldung «Keine Zeiten vorhanden.» (keine Datei) → `entriesToCsv` → Download über einen temporären Link auf die erzeugten Daten, Dateiname `zeiten-JJJJ-MM-TT.csv` (Zürcher Datum) → Bestätigung «n Zeilen exportiert.» (bzw. «1 Zeile exportiert.»).
+- **Zustände:** Während des Exports ist der Knopf gesperrt (`disabled`, `aria-busy`), zeigt Ladesymbol und «Wird exportiert …»; eine Sperre ausserhalb des Zustands verhindert auch bei sehr schnellem Doppelklick einen zweiten Export. Fehler (nicht erreichbar, Sitzung abgelaufen, Bestand geändert) erscheinen als Meldung mit den bestehenden Texten, es wird nichts heruntergeladen, der Knopf ist danach wieder frei.
+- **Meldungen** über die vorhandene Toast-Anzeige (wird von Screenreadern angesagt, wie bei Speichern/Löschen).
+- **Einbau** `zeiten-view.tsx`: Der Knopf steht in der Kopfzeile neben «Zeit erfassen» (Umriss, nur «Zeit erfassen» bleibt gelb, wie im Design-System), unabhängig von Monat und Filtern, auch im leeren Monat. Bei schmaler Breite umbrechen die Knöpfe.
+- Keine neuen Pakete, keine neuen shadcn-Komponenten.
+
+### Tests
+- **Vitest 497/497** (vorher 488, neu 9): `csv-export-ui.test.tsx` (8: Ruhezustand, Download mit Dateiname und Inhalt, «1 Zeile», keine Zeiten ohne Datei, Sperre/Doppelklick, nicht erreichbar, Sitzung abgelaufen, Änderung während des Exports) und 1 Test in `zeiten-ui.test.tsx` (Knopf im leeren Monat). `tsc` ohne Befund, ESLint nur die alte Warnung in `use-toast.ts`, `npm run build` erfolgreich.
+
+### Bekannte Grenzen / für /qa
+- Noch nicht im echten Browser geprüft: Download in Chrome/Firefox/Safari (besonders iPhone-Safari), Öffnen in Excel (Umlaute, Spalten, Zahlen), Layout bei 320/375/768/1440 px (Kopfzeile mit zwei Knöpfen), Kontrast Hell/Dunkel, Abfrage gegen die echte Datenbank mit über 1000 Einträgen. Playwright-Tests für PROJ-9 stehen aus.
+
 ## QA Test Results
 _To be added by /qa_
 

@@ -71,6 +71,13 @@ function entryInput(projectId: string, overrides: Partial<Parameters<typeof entr
 }
 
 describe('Seite «Zeiten»', () => {
+  it('zeigt den Knopf «Als CSV exportieren» auch in einem leeren Monat', async () => {
+    search = new URLSearchParams({ monat: shiftMonth(currentMonth(), -1) })
+    render(<ZeitenView />)
+    expect(await screen.findByRole('button', { name: 'Als CSV exportieren' })).toBeEnabled()
+    expect(screen.getAllByRole('button', { name: /Zeit erfassen/ }).length).toBeGreaterThan(0)
+  })
+
   it('zeigt den aktuellen Monat mit Summen, Tagesgruppen und der Markierung «Keine Beschreibung»', async () => {
     const mus = await seedProject('MUS', 'Muster AG')
     await entries.createEntry(entryInput(mus.projectId, { durationMinutes: 90, billableMinutes: 60 }))
