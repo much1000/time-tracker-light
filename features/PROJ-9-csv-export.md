@@ -1,6 +1,6 @@
 # PROJ-9: CSV-Export aller Zeiten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-18
 
@@ -365,4 +365,24 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Nicht erneut gelaufen:** die gesamte Browser-Suite (nur das Projekt `export`); Firefox/Safari weiter ungetestet.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Produktion:** https://time-tracker-light.vercel.app, Knopf «Als CSV exportieren» auf `/zeiten`
+- **Ausgeliefert:** 2026-11-18, durch Push von `main` (letzter Commit `ec88b54`) mit automatischem Vercel-Deploy. Mit ausgeliefert wurden die PROJ-8-Korrekturen (`024e761`, `a4ead2e`: lange Kundennamen, zugeklappte Projekte beim Monatswechsel).
+- **Tag:** `v1.9.0-PROJ-9` (lokal angelegt; Push des Tags wartet auf Freigabe, ebenso die lokalen Tags `v1.7.0-PROJ-7` und `v1.8.0-PROJ-8`).
+- **Datenbank:** keine Änderung, keine Migration.
+- **Umgebungsvariablen:** keine neuen.
+
+### Prüfungen vor dem Deploy
+- Build erfolgreich, ESLint ohne Fehler (nur die alte Warnung in `use-toast.ts`), Vitest 497 von 497, QA «Approved» (keine kritischen oder hohen Bugs), nur `.env.local.example` eingecheckt, keine Geheimnisse im Repository.
+
+### Prüfung in Produktion (nur lesend, mit dem Testkonto)
+- `/zeiten` ohne Anmeldung: Weiterleitung auf `/login?next=%2Fzeiten`.
+- Mit Anmeldung: Der Knopf ist sichtbar. Der Export lieferte `zeiten-2026-11-18.csv` mit BOM, der festgelegten Kopfzeile und 194 Datenzeilen; Bestätigung «Zeilen exportiert» sichtbar; keine Konsolenfehler.
+- Nicht geprüft: Vercel-Funktionslogs (keine Server-Funktion beteiligt), Lighthouse, Sentry.
+
+### Offen
+- **Excel-Test durch den Nutzer** (Doppelklick auf die Datei, Schweizer Einstellungen): Umlaute, Spalten, Zahlen.
+- **BUG-2 (niedrig):** Entscheidung steht aus (Spec anpassen oder Weiterleitung bei abgelaufener Sitzung).
+- **Gesamte Browser-Suite** erneut laufen lassen, sobald der übrig gebliebene Test-Timer im Testkonto beendet ist (siehe Nachtest).
+- Firefox, Safari/iPhone, echter Screenreader ungetestet.
+- Tags `v1.7.0-PROJ-7`, `v1.8.0-PROJ-8`, `v1.9.0-PROJ-9` noch nicht gepusht.
