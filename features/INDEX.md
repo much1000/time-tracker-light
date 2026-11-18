@@ -24,7 +24,7 @@
 | PROJ-6 | Timer — Start/Stopp pro Kunde/Projekt, immer nur ein Timer aktiv (P0, Abhängigkeiten: PROJ-3, PROJ-4) | Deployed | [PROJ-6](PROJ-6-timer.md) | 2026-11-08 |
 | PROJ-7 | Wochenübersicht — Stunden pro Tag, Kunde und Projekt, mit Beschreibung (P0, Abhängigkeiten: PROJ-4) | Deployed | [PROJ-7](PROJ-7-wochenuebersicht.md) | 2026-11-08 |
 | PROJ-8 | Monatsauswertung — Summe pro Kunde, gearbeitet und verrechenbar, mit Beschreibungstexten (P0, Abhängigkeiten: PROJ-4) | Deployed | [PROJ-8](PROJ-8-monatsauswertung.md) | 2026-11-08 |
-| PROJ-9 | CSV-Export aller Zeiten, jederzeit (P0, Abhängigkeiten: PROJ-4) | Roadmap | – | 2026-11-08 |
+| PROJ-9 | CSV-Export aller Zeiten, jederzeit (P0, Abhängigkeiten: PROJ-4) | Planned | [PROJ-9](PROJ-9-csv-export.md) | 2026-11-08 |
 | PROJ-10 | Installierbare Web-App (PWA) für das Handy (P1, Abhängigkeiten: PROJ-2) | Roadmap | – | 2026-11-08 |
 
 <!-- Add features above this line -->
