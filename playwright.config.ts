@@ -23,7 +23,7 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], channel, storageState: STORAGE_STATE },
       dependencies: ['setup'],
-      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
+      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec|PROJ-9-csv-export-qa\.spec)\.ts/,
     },
     // Der Timer ist pro Konto nur einmal da (und die Leiste erscheint auf jeder Seite): Die Timer-Tests
     // laufen allein, nachdem alle anderen fertig sind.
@@ -37,7 +37,15 @@ export default defineConfig({
       name: 'Mobile Safari',
       use: { ...devices['iPhone 13'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
-      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
+      testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec|PROJ-9-csv-export-qa\.spec)\.ts/,
+    },
+    // Der CSV-Export liest alle Zeiten des Kontos und verlangt einen Bestand, der sich während des Exports
+    // nicht ändert: Er läuft allein, nachdem alle anderen Tests (auch der Timer) fertig sind.
+    {
+      name: 'export',
+      testMatch: /PROJ-9-csv-export-qa\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], channel, storageState: STORAGE_STATE },
+      dependencies: ['chromium', 'timer'],
     },
     // Optional (PW_FIREFOX=1): dieselben Tests in Firefox, z. B. nur den Timer: --grep Timer
     ...(process.env.PW_FIREFOX
@@ -46,7 +54,7 @@ export default defineConfig({
             name: 'firefox',
             use: { ...devices['Desktop Firefox'], storageState: STORAGE_STATE },
             dependencies: ['setup'],
-            testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec)\.ts/,
+            testIgnore: /(auth\.setup|logout\.spec|PROJ-6-timer\.spec|PROJ-9-csv-export-qa\.spec)\.ts/,
           },
           {
             name: 'firefox-timer',
@@ -62,7 +70,7 @@ export default defineConfig({
       name: 'logout',
       testMatch: /logout\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], channel },
-      dependencies: ['chromium', 'timer'],
+      dependencies: ['chromium', 'timer', 'export'],
     },
   ],
   webServer: {

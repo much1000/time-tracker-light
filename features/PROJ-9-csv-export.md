@@ -1,6 +1,6 @@
 # PROJ-9: CSV-Export aller Zeiten
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-18
 
@@ -249,7 +249,105 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - Noch nicht im echten Browser geprüft: Download in Chrome/Firefox/Safari (besonders iPhone-Safari), Öffnen in Excel (Umlaute, Spalten, Zahlen), Layout bei 320/375/768/1440 px (Kopfzeile mit zwei Knöpfen), Kontrast Hell/Dunkel, Abfrage gegen die echte Datenbank mit über 1000 Einträgen. Playwright-Tests für PROJ-9 stehen aus.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-11-18 · **App:** Produktionsbuild lokal (`next start`, Port 3100) gegen die echte Supabase-Datenbank mit dem Testkonto · **Tester:** QA Engineer (AI)
+**Browser:** Chrome (Desktop). Firefox, Safari/iPhone und Excel selbst wurden **nicht** getestet (siehe Grenzen).
+
+### Zusammenfassung
+- **Akzeptanzkriterien:** 26 geprüft: 23 bestanden, 1 Abweichung (BUG-2, niedrig), 2 nur teilweise prüfbar (echtes Excel, echter Screenreader).
+- **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig).
+- **Sicherheit:** keine Befunde.
+- **Produktionsreif:** NEIN, solange BUG-1 offen ist. Es gibt keine kritischen oder hohen Fehler, aber einen spürbaren Tastatur-/Zugänglichkeitsmangel, der sich mit einer kleinen Änderung beheben lässt. Status bleibt **In Review**.
+
+### Automatisierte Tests
+- **Vitest:** 497 von 497 (davon 52 neu für PROJ-9: `csv.test.ts`, `export-all.test.ts`, `supabase-repository.test.ts`, `csv-export-ui.test.tsx`, `zeiten-ui.test.tsx`).
+- **Playwright** `tests/PROJ-9-csv-export-qa.spec.ts`: 42 Tests grün (41 Prüfungen und BUG-1 als bekannter Fehler mit `test.fail` markiert). Die Datei läuft in einem eigenen Projekt `export` allein nach allen anderen Tests, weil der Export alle Zeiten des Kontos liest und einen Bestand verlangt, der sich währenddessen nicht ändert (`playwright.config.ts`).
+- **Gesamtsuite (Chromium, 2 Arbeiter):** 316 bestanden; 1 Fehler im Timer-Layout-Test «375 px mit laufendem Timer» (PROJ-6). Er hat mit PROJ-9 nichts zu tun (Startseite, andere Datei) und war im Einzellauf grün, ist also unter Last unstabil. PROJ-2-Abmelden (3 Tests) grün.
+- Testdaten: Kunden «T-X…» mit Einträgen im Jahr 2011, darunter 1050 Einträge in einem Monat; am Ende aufgeräumt.
+
+### Akzeptanzkriterien
+
+**Auslösen und Herunterladen**
+- [x] Knopf auf /zeiten sichtbar, auch im leeren Monat und mit Filter; nicht auf Start, Woche, Monat, Kunden
+- [x] Klick startet `zeiten-JJJJ-MM-TT.csv` (Zürcher Datum) ohne Seitenwechsel; Zeilenzahl = Einträge in der Datenbank
+- [x] Ladezustand: Knopf gesperrt, «Wird exportiert …», `aria-busy`; Doppelklick startet nur einen Export (höchstens zwei Abfragen)
+- [x] Bestätigung «n Zeilen exportiert.»
+- [x] Ohne Anmeldung: Weiterleitung zur Anmeldung, kein Knopf, keine Daten
+
+**Inhalt**
+- [x] Alle Zeiten, unabhängig von Monat und Filtern (Kundenfilter und «Nur ohne Beschreibung» ändern nichts)
+- [x] Kopfzeile, elf Spalten, Reihenfolge
+- [x] Von–bis, Dauer, Stunden (105 → 1,75; 1 → 0,02; 5 → 0,08), Verrechenbar (0 bei nicht verrechenbar)
+- [x] Nur-Dauer-Einträge: Von/Bis leer; ohne Beschreibung leere Zelle
+- [x] Keine gerundete Spalte, keine Summenzeile
+- [x] Archivierter Kunde und archiviertes Projekt bleiben enthalten
+- [x] Sortierung Datum aufsteigend, am Tag nach Startzeit, ohne Uhrzeit danach (ganze Datei)
+
+**Excel-Verträglichkeit und Sonderzeichen**
+- [x] Semikolon, UTF-8 mit BOM, Windows-Zeilenende, Dezimalkomma, Datum TT.MM.JJJJ, Umlaute und Sonderzeichen unverändert (Dateiinhalt geprüft)
+- [ ] Teilweise: «öffnet sich in Excel per Doppelklick» ist über die Dateianalyse belegt, aber **nicht** in echtem Excel geprüft
+- [x] Beschreibung mit Semikolon, Anführungszeichen, Zeilenumbruch bleibt eine Zelle (jede Zeile hat elf Spalten)
+- [x] Formelschutz: `=…`, `@…`, `+…`, `-…` und Projektname mit `=` bekommen einen Apostroph; Formelzeichen in der Mitte nicht
+
+**Aktualität und Vollständigkeit**
+- [x] Korrigierter Eintrag im neuen Stand, gelöschter nicht mehr
+- [x] 1050 Einträge in einem Monat (Gesamtbestand 1254): alle Zeilen, keine doppelt, Reihenfolge stimmt
+- [x] Keine Zeiten: Meldung «Keine Zeiten vorhanden.», keine Datei (mit abgefangener Antwort getestet, da das Testkonto Daten enthält)
+- [x] Laufender Timer nicht enthalten (ein Timer ist kein Eintrag; durch den Aufbau der Abfrage und Vitest abgedeckt)
+
+**Fehlerfälle**
+- [x] Nicht erreichbar: Meldung, keine Datei, Knopf wieder frei, nächster Versuch klappt. Bestand ändert sich zwischen den Blöcken: Meldung «Während des Exports wurden Zeiten geändert», keine Datei
+- [ ] Abweichung (BUG-2): Abgelaufene Sitzung zeigt «Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.», führt aber nicht selbst zur Anmeldung
+
+**Bedienung und Darstellung**
+- [x] 320, 375, 768, 1440 px: sichtbar, mindestens 44 px, kein waagrechtes Scrollen, kein Überlappen mit «Zeit erfassen»
+- [x] axe (WCAG 2.1 AA) hell und dunkel auf /zeiten, auch nach dem Export (inkl. Meldung)
+- [ ] Teilweise: Das Ergebnis steht in einer Live-Region (Meldung), der Knopf trägt `aria-busy`; mit einem echten Screenreader nicht geprüft. Per Tastatur (Enter) auslösbar, aber der **Fokus geht danach verloren (BUG-1)**
+
+### Randfälle
+- [x] Über 1000 Einträge, keine Einträge, sehr lange Beschreibung (300 Zeichen), Formel-Einschleusung, Zeilenumbruch, HTML/SQL-Zeichen als Text, Eintrag ohne Beschreibung, archivierte Ziele, Doppelklick/langsame Verbindung, Änderung während des Exports, Bis «24:00» unverändert, mehrere Einträge am selben Tag
+- [x] Zwei Exporte hintereinander liefern denselben Inhalt
+- Sommerzeit-Grenzen: nicht eigens getestet; Datum und Uhrzeit sind reine Textwerte aus der Datenbank, der Export rechnet keine Zeitzonen um.
+
+### Bugs
+
+#### BUG-1: Nach dem Export per Tastatur ist der Fokus weg
+- **Schweregrad:** Mittel (Zugänglichkeit)
+- **Schritte:** 1. /zeiten öffnen. 2. Mit Tab auf «Als CSV exportieren». 3. Enter drücken. 4. Nach dem Download prüfen, wo der Fokus steht.
+- **Erwartet:** Der Fokus bleibt auf dem Knopf (WCAG 2.4.3, Fokusreihenfolge).
+- **Tatsächlich:** Der Knopf ist während des Exports `disabled`; gesperrte Knöpfe verlieren den Fokus. Danach steht der Fokus auf `BODY` ganz oben («Zum Inhalt springen»). Wer per Tastatur oder Screenreader arbeitet, muss sich neu durchtabben.
+- **Korrekturhinweis (für /frontend):** Den Knopf während des Exports nicht mit `disabled` sperren, sondern `aria-disabled` setzen und Klicks ignorieren (die Doppelklick-Sperre besteht schon). Danach die Markierung `test.fail()` im Test «BUG-1» entfernen.
+- **Priorität:** Vor dem Deployment beheben.
+
+#### BUG-2: Abgelaufene Sitzung führt nicht zur Anmeldung
+- **Schweregrad:** Niedrig
+- **Schritte:** Beim Export antwortet die Datenbank mit «JWT expired» (Sitzung abgelaufen).
+- **Erwartet (Spec):** «dann wird er zur Anmeldung geführt».
+- **Tatsächlich:** Es erscheint nur die Meldung «Bitte melde dich neu an»; der Nutzer bleibt auf der Seite, bis er neu lädt oder navigiert. Das entspricht dem Verhalten der übrigen Aktionen der App (z. B. Speichern).
+- **Hinweis:** Entweder die Spec anpassen («Meldung statt Weiterleitung», konsistent zur App) oder eine Weiterleitung einbauen. Empfehlung: Spec anpassen.
+- **Priorität:** Kann nach dem Deployment entschieden werden.
+
+### Beobachtungen (keine Bugs)
+- **Verbindungsfehler dauert bis zu etwa 7 Sekunden:** Der Datenbank-Client wiederholt fehlgeschlagene Abfragen einige Male, bevor die Meldung kommt. Der Knopf zeigt in der Zeit «Wird exportiert …».
+- **Meldung beim Einblenden:** Während der Animation ist die Schrift halbtransparent; axe meldete dann einmal Kontrast (unstabil). Nach der Animation sauber. Das betrifft die gemeinsame Meldungs-Komponente, nicht PROJ-9; der Test wartet jetzt auf die volle Deckkraft.
+- **Gesamtbestand:** Das Testkonto enthält über 1200 Einträge aus anderen Tests; der Export lief damit in wenigen Sekunden (zwei Blöcke).
+
+### Sicherheit (Red Team)
+- [x] Ohne Anmeldung: /zeiten leitet auf /login, kein Knopf; mit der Anon-Rolle liefert die Datenbank keine Zeiten (Zugriffsregeln).
+- [x] Der Export spricht nur mit der eigenen Datenbank, keine Dritten, keine Inhalte in der Adresse.
+- [x] Die Datei enthält keine Schlüssel, Tokens oder Passwörter.
+- [x] Formel-Einschleusung (`=HYPERLINK`, `@SUMME`, `+1+1`, `-2+3`, Projektname `=Formel Projekt`) entschärft; HTML (`<img onerror>`) und SQL-Zeichen bleiben Text in der Datei.
+- [x] Keine Ratenbegrenzung nötig: nur lesend, nur eigene Daten, Doppelklick-Sperre; wiederholte Exporte sind harmlos.
+- Nicht geprüft: Verhalten mit einem zweiten Nutzer (Einzelnutzer-App; die Zugriffsregeln der Tabelle bleiben unverändert).
+
+### Nicht getestet / Grenzen
+- Firefox, Safari/iPhone (der Download einer erzeugten Datei kann dort abweichen), echte Geräte.
+- Öffnen in echtem Excel (Schweizer Einstellungen) und in einer zweiten Anwendung.
+- Echter Screenreader; Lighthouse; Sentry.
+- Gemessene Zeit nur bei rund 1250 Zeilen; sehr grosse Mengen (mehrere Zehntausend) nicht.
+
+### Regression
+- Vitest 497/497; Playwright-Gesamtsuite 316 grün (inkl. PROJ-1 bis 8 und 11) mit einem unstabilen Timer-Layout-Test (siehe oben); Seiten Zeiten, Woche und Monat (PROJ-5/7/8) unverändert grün.
 
 ## Deployment
 _To be added by /deploy_
