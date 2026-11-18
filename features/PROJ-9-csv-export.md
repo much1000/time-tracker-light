@@ -1,6 +1,6 @@
 # PROJ-9: CSV-Export aller Zeiten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-18
 
@@ -215,6 +215,22 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Änderung während des Exports:** Wird durch die Gegenprüfung erkannt und führt zu einer Fehlermeldung, nicht zu einer falschen Datei.
 - **Sehr grosse Datenmengen:** Für eine Einzelperson (einige Tausend Einträge pro Jahr) unkritisch; Datei entsteht im Arbeitsspeicher.
 - **Sortierung in der Datenbank:** Ohne passenden Index wäre sie bei sehr vielen Zeilen langsamer; bei dieser Grössenordnung kein Problem, wird in /backend mit der echten Datenbank gemessen.
+
+## Implementation Notes (Backend)
+**Stand 2026-11-18.** Keine Datenbank-Änderung, keine Server-Route, keine neuen Pakete (wie im Entwurf).
+
+### Was gebaut wurde
+- **Datenschicht** (`repository.ts`, `supabase-repository.ts`, `in-memory-repository.ts`, `types.ts`): neue Methode `listEntriesPage(offset)`. Sie liefert höchstens `EXPORT_PAGE_SIZE` (1000) Einträge ab Position `offset` plus die Gesamtzahl (`count: exact`), mit Kunde, Kürzel, Projekt und Archiv-Hinweisen. Sortiert wird **in der Datenbank**: Datum, Startzeit (ohne Uhrzeit zuletzt), Anlegezeit, Kennung. Kein Datums-, Kunden- oder Beschreibungsfilter.
+- **Blocklader** `export-all.ts`: `loadAllEntries(repository)` holt Block für Block, bis alle da sind. Bricht mit dem neuen Fehler `export-changed` ab, wenn die Gesamtzahl zwischen zwei Blöcken wechselt, ein Block zu früh leer ist, mehr Einträge ankommen als angekündigt oder eine Kennung doppelt vorkommt. Andere Fehler (Sitzung, nicht erreichbar) werden unverändert weitergereicht.
+- **Fehlermeldung** `errors.ts`: `export-changed` → «Während des Exports wurden Zeiten geändert. Bitte starte den Export erneut.»
+- **CSV-Baustein** `csv.ts` (reine Funktionen): `entriesToCsv(entries)` (BOM, Kopfzeile, Windows-Zeilenende, Semikolon), `entryToCsvRow`, `csvText` (Formelschutz mit Apostroph bei `=`, `+`, `-`, `@`, Tabulator, Zeilenumbruch am Anfang; Maskierung bei Semikolon, Anführungszeichen, Zeilenumbruch), `formatCsvHours` (Minuten ÷ 60, Dezimalkomma, zwei Stellen), `formatCsvDate` (TT.MM.JJJJ), `csvFileName(today)`. Die 15-Minuten-Rundung wird nicht verwendet.
+
+### Tests
+- **Vitest 488/488** (vorher 445, neu 43): `csv.test.ts` (Stunden, Datum, Maskierung, Formelschutz, Zeilen, Datei), `export-all.test.ts` (über 1000 Einträge lückenlos, Sortierung, Abbruch bei Änderung/Duplikat/leerem Block, Fehlerweitergabe), `supabase-repository.test.ts` (Sortierung, Bereich, Zähler, Archiv-Hinweise, Fehler). `tsc` und ESLint ohne Befund.
+
+### Offen für /frontend
+- Knopf «Als CSV exportieren» auf `/zeiten`: Ablauf `loadAllEntries` → bei null Einträgen Meldung «Keine Zeiten vorhanden» (keine Datei) → `entriesToCsv` → Download als Blob mit `csvFileName(todayInZurich())`, Bestätigung mit Zeilenzahl, Sperre gegen Doppelklick, Fehlermeldung über `describeTimeEntryError`.
+- Noch nicht geprüft: die Abfrage gegen die echte Datenbank (Sortierung mit leeren Startzeiten, Bereich über 1000 Zeilen, Zeit bei mehreren Tausend Einträgen) und das Öffnen in Excel; beides in /qa.
 
 ## QA Test Results
 _To be added by /qa_

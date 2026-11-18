@@ -251,6 +251,41 @@ describe('SupabaseTimeEntriesRepository', () => {
     expect(ops.some(([name]) => name === 'is')).toBe(false)
   })
 
+  it('listEntriesPage fragt alle Einträge fest sortiert in einem Bereich ab und liefert die Gesamtzahl', async () => {
+    const { repo, calls } = fakeClient([
+      { data: [row({ id: 'a' }), row({ id: 'b', start_time: null, end_time: null })], count: 2500 },
+    ])
+    const page = await repo.listEntriesPage(1000)
+    expect(page.total).toBe(2500)
+    expect(page.entries.map((e) => e.id)).toEqual(['a', 'b'])
+    const ops = calls[0].ops
+    expect(ops.find(([name]) => name === 'select')?.[1][1]).toEqual({ count: 'exact' })
+    expect(ops.filter(([name]) => name === 'order').map(([, args]) => args)).toEqual([
+      ['entry_date', { ascending: true }],
+      ['start_time', { ascending: true, nullsFirst: false }],
+      ['created_at', { ascending: true }],
+      ['id', { ascending: true }],
+    ])
+    expect(ops.find(([name]) => name === 'range')?.[1]).toEqual([1000, 1999])
+    // Kein Datums-, Kunden- oder Beschreibungsfilter
+    expect(ops.some(([name]) => ['gte', 'lt', 'eq', 'is'].includes(name))).toBe(false)
+  })
+
+  it('listEntriesPage trägt Archiv-Hinweise und übersetzt Fehler', async () => {
+    const archived = {
+      id: 'p1',
+      name: 'Allgemein',
+      archived: true,
+      customer: { id: 'c1', code: 'MUS', name: 'Muster AG', archived: true },
+    }
+    const { repo } = fakeClient([{ data: [row({ project: archived })], count: 1 }])
+    expect((await repo.listEntriesPage(0)).entries[0]).toMatchObject({ projectArchived: true, customerArchived: true })
+    const offline = fakeClient([{ error: { message: 'TypeError: Failed to fetch' } }])
+    expect(await failure(offline.repo.listEntriesPage(0))).toBe('unreachable')
+    const session = fakeClient([{ error: { status: 401, message: 'JWT expired' } }])
+    expect(await failure(session.repo.listEntriesPage(0))).toBe('session')
+  })
+
   it('listWeek über den Jahreswechsel fragt den richtigen Bereich ab und meldet mehr als 1000 Einträge', async () => {
     const many = Array.from({ length: 1000 }, (_, i) => row({ id: `e${i}`, entry_date: '2025-12-30' }))
     const { repo, calls } = fakeClient([{ data: many, count: 1001 }])

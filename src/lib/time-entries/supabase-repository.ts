@@ -5,7 +5,9 @@ import type { TimeEntriesRepository } from './repository'
 import { monthRange } from './month'
 import { weekRange } from './week'
 import {
+  EXPORT_PAGE_SIZE,
   MONTH_ENTRY_LIMIT,
+  type EntriesPage,
   type BookableCustomer,
   type EntryFilter,
   type LastTarget,
@@ -232,6 +234,21 @@ export class SupabaseTimeEntriesRepository implements TimeEntriesRepository {
   async listMonthReport(month: string): Promise<MonthEntries> {
     const { from, to } = monthRange(month)
     return this.listRange(WEEK_COLUMNS, from, to, true)
+  }
+
+  // CSV-Export (PROJ-9): feste Reihenfolge in der Datenbank, damit die Blöcke lückenlos aneinanderpassen
+  async listEntriesPage(offset: number): Promise<EntriesPage> {
+    const { data, error, count } = await this.client
+      .from('time_entries')
+      .select(WEEK_COLUMNS, { count: 'exact' })
+      .order('entry_date', { ascending: true })
+      .order('start_time', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + EXPORT_PAGE_SIZE - 1)
+    if (error) throw toError(error)
+    const rows = data as unknown as EntryRow[]
+    return { entries: rows.map(toEntry), total: count ?? offset + rows.length }
   }
 
   async updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry> {

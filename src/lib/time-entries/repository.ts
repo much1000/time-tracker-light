@@ -1,5 +1,6 @@
 import type {
   BookableCustomer,
+  EntriesPage,
   EntryFilter,
   LastTarget,
   MonthEntries,
@@ -34,6 +35,10 @@ export interface TimeEntriesRepository {
   // «Kunde/Projekt archiviert». Höchstens MONTH_ENTRY_LIMIT; gibt es mehr, ist «truncated» gesetzt.
   // Die Monatsliste von «Zeiten» (listMonth) bleibt unverändert.
   listMonthReport(month: string): Promise<MonthEntries>
+  // Einträge für den CSV-Export (PROJ-9), alle Monate und Kunden: ab Position «offset» höchstens
+  // EXPORT_PAGE_SIZE Stück, aufsteigend nach Datum, dann Startzeit (ohne Uhrzeit danach), dann Anlegezeit,
+  // dann Kennung (damit die Blöcke lückenlos aneinanderpassen). Mit Archiv-Hinweisen und der Gesamtzahl.
+  listEntriesPage(offset: number): Promise<EntriesPage>
   // Ändert einen Eintrag (alle Felder, gleiche Regeln wie beim Anlegen). Der Anlegezeitpunkt bleibt.
   // Wirft «entry-not-found», wenn es ihn nicht mehr gibt.
   updateEntry(id: string, input: TimeEntryInput): Promise<TimeEntry>

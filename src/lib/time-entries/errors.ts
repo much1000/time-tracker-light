@@ -5,6 +5,7 @@ export type TimeEntryErrorKind =
   | 'target-not-found'
   | 'date-in-future'
   | 'entry-not-found'
+  | 'export-changed'
   | 'session'
   | 'unreachable'
   | 'unknown'
@@ -30,6 +31,8 @@ export function describeTimeEntryError(error: unknown): string {
         return 'Das Datum darf nicht in der Zukunft liegen.'
       case 'entry-not-found':
         return 'Dieser Eintrag existiert nicht mehr. Die Liste wird neu geladen.'
+      case 'export-changed':
+        return 'Während des Exports wurden Zeiten geändert. Bitte starte den Export erneut.'
       case 'session':
         return 'Deine Anmeldung ist abgelaufen. Bitte melde dich neu an. Deine Eingabe bleibt erhalten.'
       case 'unreachable':

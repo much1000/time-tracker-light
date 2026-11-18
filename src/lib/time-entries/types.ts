@@ -79,3 +79,14 @@ export interface WeekEntries {
 
 // Obergrenze der Einträge pro Monats- und Wochenabfrage
 export const MONTH_ENTRY_LIMIT = 1000
+
+// CSV-Export (PROJ-9): Eintrag für Eintrag in Blöcken geladen. Die Datenbank liefert höchstens 1000 Zeilen
+// pro Antwort.
+export const EXPORT_PAGE_SIZE = 1000
+
+export interface EntriesPage {
+  // Einträge ab «offset», in fester Reihenfolge (siehe listEntriesPage), mit Archiv-Hinweisen
+  entries: TimeEntry[]
+  // Gesamtzahl aller Einträge zum Zeitpunkt der Abfrage
+  total: number
+}

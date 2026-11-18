@@ -3,7 +3,9 @@ import { TimeEntryError } from './errors'
 import { monthRange } from './month'
 import type { TimeEntriesRepository } from './repository'
 import {
+  EXPORT_PAGE_SIZE,
   MONTH_ENTRY_LIMIT,
+  type EntriesPage,
   type BookableCustomer,
   type EntryFilter,
   type LastTarget,
@@ -189,6 +191,26 @@ export class InMemoryTimeEntriesRepository implements TimeEntriesRepository {
       entries: visible.map((entry) => ({ ...entry, ...flags.get(entry.projectId) })),
       truncated: matching.length > MONTH_ENTRY_LIMIT,
     }
+  }
+
+  // CSV-Export (PROJ-9): gleiche Reihenfolge wie die Datenbank, Kennung als letzter Schlüssel
+  async listEntriesPage(offset: number): Promise<EntriesPage> {
+    await this.tick()
+    const sorted = [...this.read()].sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1
+      if (a.startTime && b.startTime && a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime)
+      if (a.startTime && !b.startTime) return -1
+      if (!a.startTime && b.startTime) return 1
+      if (a.createdAt !== b.createdAt) return a.createdAt.localeCompare(b.createdAt)
+      return a.id.localeCompare(b.id)
+    })
+    const page = sorted.slice(offset, offset + EXPORT_PAGE_SIZE)
+    const flags = new Map<string, { customerArchived: boolean; projectArchived: boolean }>()
+    for (const projectId of new Set(page.map((entry) => entry.projectId))) {
+      const found = await this.findProject(projectId)
+      flags.set(projectId, { customerArchived: found.customerArchived, projectArchived: found.projectArchived })
+    }
+    return { entries: page.map((entry) => ({ ...entry, ...flags.get(entry.projectId) })), total: sorted.length }
   }
 
   // Wie die Datenbank: Datum nur bei Änderung gegen die Zukunft prüfen, Ziel nur bei Wechsel auf «aktiv»
