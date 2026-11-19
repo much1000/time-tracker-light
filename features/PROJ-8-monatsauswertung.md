@@ -111,10 +111,10 @@
 - **Design:** `docs/design-system.md`; Kontrast WCAG AA; bestehende Bausteine wiederverwenden.
 
 ## Open Questions
-- [ ] Sollen die gerundeten Stunden **zusätzlich als Dezimalzahl** gezeigt werden (z. B. 1:45 = 1,75 h), weil Rechnungen oft in Dezimalstunden lauten? Vorschlag: im MVP nur h:mm wie überall in der App; Dezimal im Export (PROJ-9) prüfen.
-- [ ] Soll ein **laufender Timer** im aktuellen Monat als Hinweis erwähnt werden («Ein Timer läuft, wird nach dem Stoppen eingerechnet»)? Vorschlag: nein, die Timer-Leiste zeigt ihn.
-- [ ] Soll die Reihenfolge der Kunden nach **Kürzel** (stabil, wie in PROJ-7) oder nach Stunden absteigend sein? Vorschlag: Kürzel.
-- [ ] Reicht der Rundungs-Hinweis als Beschriftung, oder soll ein kurzer Erklärungstext «Pro Projekt aufgerundet auf 15 Minuten» sichtbar auf der Seite stehen? Vorschlag: kurzer Text unter der Gesamtzeile.
+- [x] Sollen die gerundeten Stunden **zusätzlich als Dezimalzahl** gezeigt werden (z. B. 1:45 = 1,75 h), weil Rechnungen oft in Dezimalstunden lauten? Vorschlag: im MVP nur h:mm wie überall in der App; Dezimal im Export (PROJ-9) prüfen. → Erledigt (2026-11-19): Am Bildschirm bleibt es bei h:mm. Dezimalstunden stehen im CSV-Export (PROJ-9, Punkt als Dezimaltrenner), dort allerdings minutengenau und ungerundet; die Rundung auf 15 Minuten gibt es nur in dieser Auswertung.
+- [x] Soll ein **laufender Timer** im aktuellen Monat als Hinweis erwähnt werden («Ein Timer läuft, wird nach dem Stoppen eingerechnet»)? Vorschlag: nein, die Timer-Leiste zeigt ihn. → Erledigt (2026-11-19): Nein, die Timer-Leiste zeigt ihn; so umgesetzt.
+- [x] Soll die Reihenfolge der Kunden nach **Kürzel** (stabil, wie in PROJ-7) oder nach Stunden absteigend sein? Vorschlag: Kürzel. → Erledigt (2026-11-19): Nach Kürzel; so umgesetzt.
+- [x] Reicht der Rundungs-Hinweis als Beschriftung, oder soll ein kurzer Erklärungstext «Pro Projekt aufgerundet auf 15 Minuten» sichtbar auf der Seite stehen? Vorschlag: kurzer Text unter der Gesamtzeile. → Erledigt (2026-11-19): Kurzer Text «Pro Projekt aufgerundet auf 15 Minuten.» unter der Gesamtzeile; so umgesetzt.
 
 ## Decision Log
 
@@ -130,6 +130,7 @@
 | Navigation wie die Woche (Pfeile, «Dieser Monat», `?monat=2026-11`, keine Zukunft) | Gleiche Bedienung, Link und Zurück-Knopf funktionieren | 2026-11-17 |
 | Hinweis «Laufender Monat, noch nicht abgeschlossen» | Verhindert, dass eine unvollständige Summe in eine Rechnung übernommen wird | 2026-11-17 |
 | Kein «Kopieren»-Knopf | Übernahme in die Rechnung läuft über den CSV-Export (PROJ-9); ein zweiter Ausgabeweg wäre ein zweites Format | 2026-11-17 |
+| Offene Fragen abgeschlossen (Dezimalstunden nur im Export, kein Timer-Hinweis, Kunden nach Kürzel, sichtbarer Rundungs-Text) | Die Vorschläge der Spec sind umgesetzt und ausgeliefert; PROJ-9 deckt Dezimalstunden ab. Auf Wunsch des Nutzers geschlossen, keine Änderung am Verhalten | 2026-11-19 |
 | Einträge zählen zu ihrem Datum, auch bei Ende 24:00 | Entspricht dem Zeitmodell (ein Eintrag gehört zu einem Tag) | 2026-11-17 |
 
 ### Technical Decisions
@@ -335,4 +336,4 @@ PROJ-1 bis PROJ-7 laufen unverändert (336 von 336 grün, Chrome); die Navigatio
 - **Geprüft vor dem Deploy:** `npm run build` ok, `npm run lint` ohne Fehler (eine alte Warnung in `use-toast.ts`), Vitest 444/444, Playwright (Chrome) 336/336 (mit zwei Workern)
 - **Geprüft in Produktion (Chrome, Testkonto, nur lesen):** `/monat` lädt mit Titel «Monat · Time Tracker Light», Navigation mit sechs Einträgen, Monatsüberschrift «November 2026», Blättern in den Vormonat, keine Konsolenfehler; ohne Anmeldung Weiterleitung auf `/login?next=%2Fmonat`
 - **Offen zum Deploy-Zeitpunkt (bewusst mit ausgeliefert, inzwischen behoben, siehe Bugfixes):** BUG-1 (Medium): sehr langer Kundenname ohne Leerzeichen bricht im Kundenkopf nicht um, die Seite scrollt waagrecht. BUG-2 (Low): beim Zurückblättern in einen Monat sind die Projekte wieder aufgeklappt, wenn sie dort zuletzt aufgeklappt waren.
-- **Offen (sonst):** Firefox/Safari und echte Geräte ungetestet; kein Sentry, keine Lighthouse-Messung; Dezimalstunden im Export (PROJ-9) prüfen
+- **Offen (sonst):** Firefox/Safari und echte Geräte ungetestet; kein Sentry, keine Lighthouse-Messung; Dezimalstunden im Export: erledigt mit PROJ-9
