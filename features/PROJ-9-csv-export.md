@@ -382,7 +382,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - Nicht geprüft: Vercel-Funktionslogs (keine Server-Funktion beteiligt), Lighthouse, Sentry.
 
 ### Offen
-- **Excel-Test durch den Nutzer** (Doppelklick auf die Datei, Schweizer Einstellungen): Umlaute, Spalten, Zahlen.
+- ~~Excel-Test durch den Nutzer~~ erledigt am 2026-11-19: Die Datei öffnet sich in Excel per Doppelklick korrekt («passt», Dezimalpunkt-Version).
 - ~~BUG-2~~ erledigt am 2026-11-19 durch Anpassung der Spec (Meldung statt Weiterleitung).
 - **Gesamte Browser-Suite** erneut laufen lassen, sobald der übrig gebliebene Test-Timer im Testkonto beendet ist (siehe Nachtest).
 - Firefox, Safari/iPhone, echter Screenreader ungetestet.
