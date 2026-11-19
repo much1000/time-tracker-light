@@ -74,7 +74,7 @@
 
 ### Fehlerfälle
 - [ ] Angenommen die Datenbank ist nicht erreichbar oder das Laden bricht mittendrin ab, wenn der Nutzer exportiert, dann erscheint eine verständliche Fehlermeldung, es wird keine unvollständige Datei heruntergeladen und der Knopf ist wieder bedienbar.
-- [ ] Angenommen die Sitzung ist abgelaufen, wenn der Nutzer exportiert, dann wird er zur Anmeldung geführt und nach dem Login ist die Zeiten-Seite wieder erreichbar.
+- [ ] Angenommen die Sitzung ist abgelaufen, wenn der Nutzer exportiert, dann erscheint die Meldung «Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.», es wird keine Datei geladen und der Knopf ist wieder bedienbar (keine automatische Weiterleitung, wie bei den übrigen Aktionen der App; bei der nächsten Navigation führt der Seitenschutz zur Anmeldung).
 
 ### Bedienung und Darstellung
 - [ ] Angenommen der Nutzer ist auf Handy (320 px), Tablet oder Laptop, dann ist der Knopf sichtbar, mindestens 44 × 44 px gross, ohne horizontales Scrollen und per Tastatur bedienbar.
@@ -186,7 +186,7 @@ Quelle: bestehende Tabelle der Zeiteinträge in Supabase; Zugriffsregeln unverä
 3. Prüfen, dass die Zahl der geholten Zeilen der Gesamtzahl entspricht. Weicht sie ab (z. B. weil auf einem anderen Gerät währenddessen etwas geändert wurde), wird **nichts** heruntergeladen; es erscheint eine Fehlermeldung mit dem Hinweis, es nochmals zu versuchen.
 4. Keine Einträge: Meldung «Keine Zeiten vorhanden», keine Datei.
 5. Sonst Dateitext bauen, Download auslösen, Bestätigung mit Zeilenzahl zeigen, Knopf freigeben.
-Bricht das Laden ab (Netz, abgelaufene Sitzung), gelten die bestehenden Fehlermeldungen der Datenschicht (Sitzung → zurück zur Anmeldung).
+Bricht das Laden ab (Netz, abgelaufene Sitzung), gelten die bestehenden Fehlermeldungen der Datenschicht (Sitzung abgelaufen → Meldung «Bitte melde dich neu an», keine automatische Weiterleitung, wie bei den übrigen Aktionen der App).
 
 ### D) Neue Bausteine (ohne Code)
 - **Datenschicht:** neue Methode «Einträge in Blöcken holen» in der Schnittstelle der Zeiteinträge, mit Supabase-Umsetzung und Platzhalter für Tests. Jeder Eintrag trägt Kunde, Kürzel, Projekt (mit Archiv-Hinweisen wie bei Woche/Monat). Sie sortiert in der **Datenbank** (nicht im Browser), damit die Blöcke lückenlos aneinanderpassen.
@@ -255,10 +255,10 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 **Browser:** Chrome (Desktop). Firefox, Safari/iPhone und Excel selbst wurden **nicht** getestet (siehe Grenzen).
 
 ### Zusammenfassung
-- **Akzeptanzkriterien:** 26 geprüft: 23 bestanden, 1 Abweichung (BUG-2, niedrig), 2 nur teilweise prüfbar (echtes Excel, echter Screenreader).
-- **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig). Nach dem Nachtest: BUG-1 behoben, BUG-2 (niedrig) offen.
+- **Akzeptanzkriterien:** 26 geprüft: 23 bestanden, 1 Abweichung (BUG-2, niedrig, per Spec-Anpassung erledigt), 2 nur teilweise prüfbar (echtes Excel, echter Screenreader).
+- **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig). Nach dem Nachtest: BUG-1 behoben, BUG-2 (niedrig) per Spec-Anpassung erledigt (2026-11-19).
 - **Sicherheit:** keine Befunde.
-- **Produktionsreif:** JA (nach dem Nachtest vom 2026-11-18, siehe unten): keine kritischen oder hohen Fehler, BUG-1 behoben, BUG-2 (niedrig) wartet auf eine Entscheidung. Status **Approved**. Vorbehalt: Die gesamte Browser-Suite konnte im Nachtest wegen eines übrig gebliebenen Test-Timers nicht sauber durchlaufen (siehe «Nachtest»).
+- **Produktionsreif:** JA (nach dem Nachtest vom 2026-11-18, siehe unten): keine kritischen oder hohen Fehler, BUG-1 behoben, BUG-2 (niedrig) per Spec-Anpassung erledigt. Status **Approved**. Vorbehalt: Die gesamte Browser-Suite konnte im Nachtest wegen eines übrig gebliebenen Test-Timers nicht sauber durchlaufen (siehe «Nachtest»).
 
 ### Automatisierte Tests
 - **Vitest:** 497 von 497 (davon 52 neu für PROJ-9: `csv.test.ts`, `export-all.test.ts`, `supabase-repository.test.ts`, `csv-export-ui.test.tsx`, `zeiten-ui.test.tsx`).
@@ -298,7 +298,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 **Fehlerfälle**
 - [x] Nicht erreichbar: Meldung, keine Datei, Knopf wieder frei, nächster Versuch klappt. Bestand ändert sich zwischen den Blöcken: Meldung «Während des Exports wurden Zeiten geändert», keine Datei
-- [ ] Abweichung (BUG-2): Abgelaufene Sitzung zeigt «Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.», führt aber nicht selbst zur Anmeldung
+- [x] Abgelaufene Sitzung zeigt «Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.», es wird keine Datei geladen (Kriterium nach dem Test angepasst: Meldung statt Weiterleitung, siehe BUG-2)
 
 **Bedienung und Darstellung**
 - [x] 320, 375, 768, 1440 px: sichtbar, mindestens 44 px, kein waagrechtes Scrollen, kein Überlappen mit «Zeit erfassen»
@@ -320,7 +320,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Korrekturhinweis (für /frontend):** Den Knopf während des Exports nicht mit `disabled` sperren, sondern `aria-disabled` setzen und Klicks ignorieren (die Doppelklick-Sperre besteht schon). Danach die Markierung `test.fail()` im Test «BUG-1» entfernen.
 - **Priorität:** Vor dem Deployment beheben. **Behoben** (Frontend, 2026-11-18) und im Nachtest bestätigt.
 
-#### BUG-2: Abgelaufene Sitzung führt nicht zur Anmeldung
+#### BUG-2: Abgelaufene Sitzung führt nicht zur Anmeldung (erledigt durch Anpassung der Spec, 2026-11-19)
 - **Schweregrad:** Niedrig
 - **Schritte:** Beim Export antwortet die Datenbank mit «JWT expired» (Sitzung abgelaufen).
 - **Erwartet (Spec):** «dann wird er zur Anmeldung geführt».
@@ -353,7 +353,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 ### Nachtest (2026-11-18, nach der Korrektur von BUG-1)
 - **BUG-1 bestätigt behoben:** Der Test «BUG-1 (behoben)» (Fokus bleibt nach dem Export auf dem Knopf, per Tastatur) läuft ohne `test.fail` grün; das Playwright-Projekt `export` lief nach der Korrektur 42 von 42 grün (inkl. axe hell/dunkel, Layout 320 bis 1440 px, Doppelklick mit `aria-disabled`).
 - **Vitest:** 497 von 497.
-- **BUG-2 (niedrig)** unverändert offen; keine neuen Bugs gefunden.
+- **BUG-2 (niedrig)** erledigt: Spec angepasst (Meldung statt Weiterleitung); keine neuen Bugs gefunden.
 - **Gesamtsuite im Nachtest nicht sauber durchgelaufen (kein Fehler von PROJ-9):** Im Testkonto lief ein Timer weiter, den ein Timer-Test (PROJ-6) übrig gelassen hatte (Kunde «Timer DB BYHRP», gestartet 2026-11-18 16:23 UTC). Solange ein Timer läuft, steht er in der Timer-Leiste und im Seitentitel («1:40 · T-TDBYHRP · …»). Dadurch schlugen 6 ältere Tests fehl (Seitentitel in PROJ-3, 5, 8; Texte «Allgemein» und «Beschreibung» in PROJ-3, 4 doppelt vorhanden); 209 Tests liefen deshalb nicht (Folge der Projektabhängigkeiten). 166 Tests liefen grün. Das Löschen des Test-Timers in der Datenbank wurde nicht freigegeben und deshalb nicht ausgeführt.
 - **Offen:** Timer im Testkonto beenden (in der App «Verwerfen» oder «Stopp»), danach die gesamte Browser-Suite erneut laufen lassen. Der vorherige vollständige Lauf (vor der Korrektur, 316 grün) war bis auf den unstabilen Timer-Layout-Test sauber; seither wurde nur der Export-Knopf geändert.
 
@@ -361,7 +361,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 **Stand 2026-11-18.**
 
 - **BUG-1 (mittel) behoben:** Der Knopf «Als CSV exportieren» wird während des Exports nicht mehr mit `disabled` gesperrt, sondern mit `aria-disabled` (gedimmt, Cursor «nicht erlaubt»). Dadurch bleibt der Fokus nach dem Export auf dem Knopf. Klicks während des Exports ignoriert weiterhin die Sperre in der Komponente (kein zweiter Export). Geändert: `csv-export-button.tsx`.
-- **BUG-2 (niedrig) offen:** Abgelaufene Sitzung zeigt die Meldung, leitet aber nicht weiter. Empfehlung: Spec anpassen (Meldung statt Weiterleitung, wie in der übrigen App); Entscheidung steht aus.
+- **BUG-2 (niedrig) erledigt (2026-11-19):** Entscheidung des Nutzers: Spec anpassen. Abgelaufene Sitzung zeigt die Meldung, leitet nicht weiter (wie in der übrigen App). Kein Codewechsel nötig.
 - **Tests:** Vitest 497/497 (Test «sperrt den Knopf» prüft jetzt `aria-disabled` statt `disabled`, plus Zustand danach). Playwright `export`-Projekt 42/42: der Test «BUG-1 (behoben)» läuft ohne `test.fail` grün, ebenso der Doppelklick-Test mit `aria-disabled`. `tsc` ohne Befund, ESLint nur die alte Warnung in `use-toast.ts`, `npm run build` erfolgreich.
 - **Nicht erneut gelaufen:** die gesamte Browser-Suite (nur das Projekt `export`); Firefox/Safari weiter ungetestet.
 
@@ -383,7 +383,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 
 ### Offen
 - **Excel-Test durch den Nutzer** (Doppelklick auf die Datei, Schweizer Einstellungen): Umlaute, Spalten, Zahlen.
-- **BUG-2 (niedrig):** Entscheidung steht aus (Spec anpassen oder Weiterleitung bei abgelaufener Sitzung).
+- ~~BUG-2~~ erledigt am 2026-11-19 durch Anpassung der Spec (Meldung statt Weiterleitung).
 - **Gesamte Browser-Suite** erneut laufen lassen, sobald der übrig gebliebene Test-Timer im Testkonto beendet ist (siehe Nachtest).
 - Firefox, Safari/iPhone, echter Screenreader ungetestet.
 - Tags `v1.7.0-PROJ-7`, `v1.8.0-PROJ-8`, `v1.9.0-PROJ-9` noch nicht gepusht.
