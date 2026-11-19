@@ -258,7 +258,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Akzeptanzkriterien:** 26 geprüft: 23 bestanden, 1 Abweichung (BUG-2, niedrig, per Spec-Anpassung erledigt), 2 nur teilweise prüfbar (echtes Excel, echter Screenreader).
 - **Bugs:** 2 (0 kritisch, 0 hoch, 1 mittel, 1 niedrig). Nach dem Nachtest: BUG-1 behoben, BUG-2 (niedrig) per Spec-Anpassung erledigt (2026-11-19).
 - **Sicherheit:** keine Befunde.
-- **Produktionsreif:** JA (nach dem Nachtest vom 2026-11-18, siehe unten): keine kritischen oder hohen Fehler, BUG-1 behoben, BUG-2 (niedrig) per Spec-Anpassung erledigt. Status **Approved**. Vorbehalt: Die gesamte Browser-Suite konnte im Nachtest wegen eines übrig gebliebenen Test-Timers nicht sauber durchlaufen (siehe «Nachtest»).
+- **Produktionsreif:** JA (nach dem Nachtest vom 2026-11-18, siehe unten): keine kritischen oder hohen Fehler, BUG-1 behoben, BUG-2 (niedrig) per Spec-Anpassung erledigt. Status **Approved**. Der anfängliche Vorbehalt (übrig gebliebener Test-Timer) ist behoben: Gesamtsuite 381/381 grün (siehe «Nachtest»).
 
 ### Automatisierte Tests
 - **Vitest:** 497 von 497 (davon 52 neu für PROJ-9: `csv.test.ts`, `export-all.test.ts`, `supabase-repository.test.ts`, `csv-export-ui.test.tsx`, `zeiten-ui.test.tsx`).
@@ -355,7 +355,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Vitest:** 497 von 497.
 - **BUG-2 (niedrig)** erledigt: Spec angepasst (Meldung statt Weiterleitung); keine neuen Bugs gefunden.
 - **Gesamtsuite im Nachtest nicht sauber durchgelaufen (kein Fehler von PROJ-9):** Im Testkonto lief ein Timer weiter, den ein Timer-Test (PROJ-6) übrig gelassen hatte (Kunde «Timer DB BYHRP», gestartet 2026-11-18 16:23 UTC). Solange ein Timer läuft, steht er in der Timer-Leiste und im Seitentitel («1:40 · T-TDBYHRP · …»). Dadurch schlugen 6 ältere Tests fehl (Seitentitel in PROJ-3, 5, 8; Texte «Allgemein» und «Beschreibung» in PROJ-3, 4 doppelt vorhanden); 209 Tests liefen deshalb nicht (Folge der Projektabhängigkeiten). 166 Tests liefen grün. Das Löschen des Test-Timers in der Datenbank wurde nicht freigegeben und deshalb nicht ausgeführt.
-- **Offen:** Timer im Testkonto beenden (in der App «Verwerfen» oder «Stopp»), danach die gesamte Browser-Suite erneut laufen lassen. Der vorherige vollständige Lauf (vor der Korrektur, 316 grün) war bis auf den unstabilen Timer-Layout-Test sauber; seither wurde nur der Export-Knopf geändert.
+- **Erledigt (2026-11-19):** Der Nutzer hat den Test-Timer beendet (Datenbank: 0 laufende Timer). Danach lief die gesamte Browser-Suite (Chromium, Timer, Export, Abmelden; 2 Arbeiter, frischer Produktionsbuild) mit **381 von 381 Tests grün**, ohne unstabile Tests. Damit ist die Regression sauber bestätigt.
 
 ## Bugfixes nach QA (Frontend)
 **Stand 2026-11-18.**
@@ -384,6 +384,6 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 ### Offen
 - ~~Excel-Test durch den Nutzer~~ erledigt am 2026-11-19: Die Datei öffnet sich in Excel per Doppelklick korrekt («passt», Dezimalpunkt-Version).
 - ~~BUG-2~~ erledigt am 2026-11-19 durch Anpassung der Spec (Meldung statt Weiterleitung).
-- **Gesamte Browser-Suite** erneut laufen lassen, sobald der übrig gebliebene Test-Timer im Testkonto beendet ist (siehe Nachtest).
+- ~~Gesamte Browser-Suite erneut laufen lassen~~ erledigt am 2026-11-19: 381 von 381 grün.
 - Firefox, Safari/iPhone, echter Screenreader ungetestet.
 - Tags `v1.7.0-PROJ-7`, `v1.8.0-PROJ-8`, `v1.9.0-PROJ-9` noch nicht gepusht.
