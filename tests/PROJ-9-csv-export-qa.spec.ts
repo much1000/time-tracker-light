@@ -319,22 +319,22 @@ test.describe('Datei und Inhalt', () => {
     expect(row.slice(0, 5)).toEqual(['20.05.2011', A.name, A.code, 'Allgemein', 'Später Tag'])
   })
 
-  test('AC: Von/Bis und Dauer: 105 Minuten → 1,75 Stunden, verrechenbar 90 → 1,50', async () => {
+  test('AC: Von/Bis und Dauer: 105 Minuten → 1.75 Stunden, verrechenbar 90 → 1.50', async () => {
     const row = mine(file.rows).find((r) => r[4] === 'Mit Zeiten')!
-    expect(row.slice(5)).toEqual(['14:00', '15:45', '105', '1,75', '90', '1,50'])
+    expect(row.slice(5)).toEqual(['14:00', '15:45', '105', '1.75', '90', '1.50'])
   })
 
   test('AC: Eintrag nur mit Dauer hat leere Spalten Von und Bis, ohne Beschreibung eine leere Zelle', async () => {
     const row = mine(file.rows).find((r) => r[4] === 'Ohne Uhrzeit')!
-    expect(row.slice(5)).toEqual(['', '', '15', '0,25', '15', '0,25'])
+    expect(row.slice(5)).toEqual(['', '', '15', '0.25', '15', '0.25'])
     const empty = mine(file.rows).find((r) => r[0] === '13.05.2011')!
     expect(empty[4]).toBe('')
-    expect(empty.slice(7)).toEqual(['1', '0,02', '1', '0,02'])
+    expect(empty.slice(7)).toEqual(['1', '0.02', '1', '0.02'])
   })
 
-  test('AC: Nicht verrechenbarer Eintrag hat 0 Minuten und 0,00 Stunden; «24:00» steht unverändert in «Bis»', async () => {
+  test('AC: Nicht verrechenbarer Eintrag hat 0 Minuten und 0.00 Stunden; «24:00» steht unverändert in «Bis»', async () => {
     const none = mine(file.rows).find((r) => r[4] === 'Nicht verrechenbar')!
-    expect(none.slice(7)).toEqual(['5', '0,08', '0', '0,00'])
+    expect(none.slice(7)).toEqual(['5', '0.08', '0', '0.00'])
     const night = mine(file.rows).find((r) => r[4] === 'Bis Mitternacht')!
     expect(night.slice(5, 7)).toEqual(['23:00', '24:00'])
   })
@@ -409,7 +409,7 @@ test.describe('Aktualität', () => {
 
     const after = await doExport(page)
     expect(mine(after.rows).some((r) => r[4] === 'Vor der Änderung')).toBe(false)
-    expect(mine(after.rows).find((r) => r[4] === 'Nach der Änderung')?.slice(7)).toEqual(['50', '0,83', '50', '0,83'])
+    expect(mine(after.rows).find((r) => r[4] === 'Nach der Änderung')?.slice(7)).toEqual(['50', '0.83', '50', '0.83'])
     expect(mine(after.rows).some((r) => r[4] === 'Wird gelöscht')).toBe(false)
     expect(after.rows).toHaveLength(before.rows.length - 1)
   })

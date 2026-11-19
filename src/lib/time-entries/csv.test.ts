@@ -23,16 +23,16 @@ function entry(overrides: Partial<TimeEntry> = {}): TimeEntry {
 
 describe('formatCsvHours', () => {
   it.each([
-    [0, '0,00'],
-    [1, '0,02'],
-    [15, '0,25'],
-    [20, '0,33'],
-    [40, '0,67'],
-    [59, '0,98'],
-    [60, '1,00'],
-    [105, '1,75'],
-    [450, '7,50'],
-    [1440, '24,00'],
+    [0, '0.00'],
+    [1, '0.02'],
+    [15, '0.25'],
+    [20, '0.33'],
+    [40, '0.67'],
+    [59, '0.98'],
+    [60, '1.00'],
+    [105, '1.75'],
+    [450, '7.50'],
+    [1440, '24.00'],
   ])('%i Minuten → «%s»', (minutes, text) => {
     expect(formatCsvHours(minutes)).toBe(text)
   })
@@ -82,18 +82,18 @@ describe('csvText', () => {
 
 describe('entryToCsvRow', () => {
   it('schreibt alle elf Spalten in der festgelegten Reihenfolge', () => {
-    expect(entryToCsvRow(entry())).toBe('03.11.2026;Muster AG;MUS;Allgemein;Konzept;08:30;10:15;105;1,75;90;1,50')
+    expect(entryToCsvRow(entry())).toBe('03.11.2026;Muster AG;MUS;Allgemein;Konzept;08:30;10:15;105;1.75;90;1.50')
   })
 
   it('lässt Von und Bis bei Einträgen nur mit Dauer leer, auch ohne Beschreibung', () => {
     expect(entryToCsvRow(entry({ startTime: null, endTime: null, description: null }))).toBe(
-      '03.11.2026;Muster AG;MUS;Allgemein;;;;105;1,75;90;1,50'
+      '03.11.2026;Muster AG;MUS;Allgemein;;;;105;1.75;90;1.50'
     )
   })
 
   it('schreibt 0 Minuten bei nicht verrechenbaren Einträgen und «24:00» unverändert', () => {
     expect(entryToCsvRow(entry({ billableMinutes: 0, startTime: '23:00', endTime: '24:00', durationMinutes: 60 }))).toBe(
-      '03.11.2026;Muster AG;MUS;Allgemein;Konzept;23:00;24:00;60;1,00;0;0,00'
+      '03.11.2026;Muster AG;MUS;Allgemein;Konzept;23:00;24:00;60;1.00;0;0.00'
     )
   })
 

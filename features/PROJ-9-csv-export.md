@@ -31,11 +31,11 @@
 - **Import von CSV-Dateien:** Nicht gefordert.
 
 ## Dateiformat (Festlegung)
-- **Kodierung und Trennzeichen:** UTF-8 mit BOM, Semikolon als Trennzeichen, Zeilenende Windows-üblich, Dezimalkomma bei Stunden.
+- **Kodierung und Trennzeichen:** UTF-8 mit BOM, Semikolon als Trennzeichen, Zeilenende Windows-üblich, Dezimalpunkt bei Stunden (wie Schweizer Excel).
 - **Kopfzeile** in der ersten Zeile, deutsche Spaltennamen.
 - **Spalten (in dieser Reihenfolge):** Datum (TT.MM.JJJJ), Kunde, Kundenkürzel, Projekt, Beschreibung, Von, Bis, Dauer (Minuten), Dauer (Stunden), Verrechenbar (Minuten), Verrechenbar (Stunden).
 - **Von/Bis** sind leer bei Einträgen, die nur mit Dauer erfasst wurden.
-- **Stunden** als Dezimalzahl mit zwei Nachkommastellen (105 Min. → 1,75), nur zur Anzeige; die Minuten-Spalten sind die genauen Werte.
+- **Stunden** als Dezimalzahl mit zwei Nachkommastellen (105 Min. → 1.75), nur zur Anzeige; die Minuten-Spalten sind die genauen Werte.
 - **Sortierung:** nach Datum aufsteigend, innerhalb eines Tages nach Startzeit (Einträge ohne Uhrzeit danach, in Erfassungsreihenfolge).
 - **Dateiname:** `zeiten-JJJJ-MM-TT.csv` (Datum des Exports).
 
@@ -56,7 +56,7 @@
 - [ ] Angenommen ein Eintrag hat von–bis, wenn er exportiert wird, dann stehen Von und Bis in der Datei und die Dauer entspricht der Differenz in Minuten.
 - [ ] Angenommen ein Eintrag wurde nur mit Dauer erfasst, wenn er exportiert wird, dann sind Von und Bis leer und die Dauer steht in Minuten und Stunden.
 - [ ] Angenommen ein Eintrag ist nicht verrechenbar oder nur teilweise verrechenbar, wenn er exportiert wird, dann stimmen die Spalten «Verrechenbar» mit dem erfassten Wert überein (0 bei nicht verrechenbar).
-- [ ] Angenommen ein Eintrag dauert 105 Minuten, wenn er exportiert wird, dann stehen 105 in «Dauer (Minuten)» und 1,75 in «Dauer (Stunden)» (Dezimalkomma).
+- [ ] Angenommen ein Eintrag dauert 105 Minuten, wenn er exportiert wird, dann stehen 105 in «Dauer (Minuten)» und 1.75 in «Dauer (Stunden)» (Dezimalpunkt).
 - [ ] Angenommen die Datei wird erzeugt, dann steht keine gerundete Spalte und keine Summenzeile darin; alle Werte sind minutengenau.
 - [ ] Angenommen ein Eintrag gehört zu einem archivierten Kunden oder Projekt, wenn der Nutzer exportiert, dann ist der Eintrag in der Datei enthalten, mit dem Namen des archivierten Kunden/Projekts.
 - [ ] Angenommen die Einträge werden exportiert, dann sind sie nach Datum aufsteigend und innerhalb eines Tages nach Startzeit sortiert.
@@ -116,13 +116,14 @@
 | Eine Zeile pro Zeiteintrag, keine Summen | Die Datei ist die vollständige, prüfbare Rohdatenbasis; Summen und Rundung zeigt PROJ-8 | 2026-11-18 |
 | Keine gerundeten Werte in der Datei | Rundung gilt pro Projekt und Monat nach der Summe (PROJ-8); eine gerundete Spalte pro Eintrag wäre falsch und widerspräche dem Bildschirm | 2026-11-18 |
 | Minuten und Dezimalstunden nebeneinander | Minuten sind exakt, Stunden bequem für Excel und Rechnungen; schliesst die offene Frage zu Dezimalstunden aus PROJ-8 | 2026-11-18 |
-| Semikolon, UTF-8 mit BOM, Dezimalkomma | Öffnet sich in deutsch-/schweizerischem Excel per Doppelklick korrekt, ohne Import-Assistent | 2026-11-18 |
+| Semikolon, UTF-8 mit BOM, Dezimalpunkt | Öffnet sich in deutsch-/schweizerischem Excel per Doppelklick korrekt, ohne Import-Assistent | 2026-11-18 |
 | Immer alle Zeiten, ohne Filter | Entspricht dem PRD («aller Zeiten, jederzeit»); weniger Bedienung und Fälle; Filtern geht in Excel | 2026-11-18 |
 | Ein Knopf, nur auf der Zeiten-Seite | Ein Einstiegspunkt reicht für den MVP; die Zeiten-Seite ist der Ort für Prüfen und Korrigieren | 2026-11-18 |
 | Laufender Timer nicht enthalten | Konsistent mit PROJ-8; ein Timer wird erst beim Stoppen zum Eintrag | 2026-11-18 |
 | Archivierte Kunden/Projekte bleiben im Export | Sonst fehlen Zeiten, die für die Rechnung nötig sind | 2026-11-18 |
 | Formelzeichen am Textanfang werden entschärft | Schutz vor Formel-Einschleusung in Excel; Beschreibungen sind freier Text | 2026-11-18 |
 | Unvollständige Datei wird nie geliefert | Fehlende Zeilen ohne Hinweis würden Auswertung und Rechnung verfälschen (PRD-Kriterium 4) | 2026-11-18 |
+| Dezimalpunkt statt Dezimalkomma bei Stunden (geändert 2026-11-19) | Schweizer Excel verwendet den Punkt als Dezimaltrenner; die ursprüngliche Annahme «Komma» war falsch. Das Semikolon als Spaltentrenner bleibt | 2026-11-19 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -132,7 +133,7 @@
 | Keine Datenbank-Änderung | Alle Felder liegen in den Zeiteinträgen; Kunde und Projekt kommen über die bestehende Verknüpfung | 2026-11-18 |
 | Seitenweises Laden in 1000er-Blöcken mit eindeutiger Reihenfolge | Datenbank liefert höchstens 1000 Zeilen pro Antwort; ohne eindeutige Sortierung (Datum, Startzeit, Anlegezeit, Kennung) könnten bei Seitenwechsel Zeilen doppelt oder gar nicht erscheinen | 2026-11-18 |
 | Gesamtzahl nach dem Laden gegenprüfen, bei Abweichung abbrechen | Wird während des Exports ein Eintrag geändert, stimmt die Datei nicht; lieber Fehlermeldung und neu starten als stillschweigend falsche Datei (PRD-Kriterium 4) | 2026-11-18 |
-| Format-Logik als eigene, reine Rechenfunktion (Maskieren, Dezimalkomma, Formelschutz, Datum) | Einzeln testbar mit allen Grenzfällen; getrennt von Oberfläche und Datenbank | 2026-11-18 |
+| Format-Logik als eigene, reine Rechenfunktion (Maskieren, Dezimalpunkt, Formelschutz, Datum) | Einzeln testbar mit allen Grenzfällen; getrennt von Oberfläche und Datenbank | 2026-11-18 |
 | Stunden = Minuten ÷ 60, auf zwei Nachkommastellen kaufmännisch gerundet; Minutenspalten sind massgebend | Rundungsabweichungen von wenigen Hundertstel in der Stundenspalte sind unvermeidlich; die exakten Minuten bleiben daneben | 2026-11-18 |
 | Formelschutz: Apostroph vor Texte, die mit `=`, `+`, `-`, `@`, Tabulator oder Zeilenumbruch beginnen | Verhindert Formel-Einschleusung in Excel; betrifft nur Textspalten, nie Zahlen | 2026-11-18 |
 | Keine neuen Pakete | Eine CSV-Datei mit festem Format ist mit Bordmitteln des Browsers einfach und zuverlässiger als eine Fremdbibliothek | 2026-11-18 |
@@ -167,7 +168,7 @@ Eine Zeile der Datei entspricht einem Eintrag:
 - Kunde (Name), Kundenkürzel, Projekt (Name)  -> auch archivierte Kunden/Projekte
 - Beschreibung (kann leer sein, kann Zeilenumbrüche und Semikolons enthalten)
 - Von, Bis (leer bei Einträgen nur mit Dauer; «24:00» möglich, wenn ein Timer über Mitternacht gelaufen ist)
-- Dauer in Minuten (ganze Zahl) und in Stunden (Dezimalkomma, zwei Nachkommastellen)
+- Dauer in Minuten (ganze Zahl) und in Stunden (Dezimalpunkt, zwei Nachkommastellen)
 - Verrechenbar in Minuten und in Stunden
 
 Reihenfolge der Zeilen: Datum aufsteigend, dann Startzeit (ohne Uhrzeit danach),
@@ -189,7 +190,7 @@ Bricht das Laden ab (Netz, abgelaufene Sitzung), gelten die bestehenden Fehlerme
 
 ### D) Neue Bausteine (ohne Code)
 - **Datenschicht:** neue Methode «Einträge in Blöcken holen» in der Schnittstelle der Zeiteinträge, mit Supabase-Umsetzung und Platzhalter für Tests. Jeder Eintrag trägt Kunde, Kürzel, Projekt (mit Archiv-Hinweisen wie bei Woche/Monat). Sie sortiert in der **Datenbank** (nicht im Browser), damit die Blöcke lückenlos aneinanderpassen.
-- **Format-Baustein «CSV»** (reine Rechenfunktionen, einzeln getestet): Kopfzeile, Zeile je Eintrag, Maskierung von Semikolon/Anführungszeichen/Zeilenumbrüchen, Formelschutz, Datum, Dezimalkomma, BOM, Dateiname. Grenzfälle: leere Beschreibung, `=SUMME(A1)`, `@x`, `-1`, Beschreibung mit Zeilenumbruch, 0 Minuten, 24:00, 1440 Minuten, Dauer 1 Minute (0,02 h).
+- **Format-Baustein «CSV»** (reine Rechenfunktionen, einzeln getestet): Kopfzeile, Zeile je Eintrag, Maskierung von Semikolon/Anführungszeichen/Zeilenumbrüchen, Formelschutz, Datum, Dezimalpunkt, BOM, Dateiname. Grenzfälle: leere Beschreibung, `=SUMME(A1)`, `@x`, `-1`, Beschreibung mit Zeilenumbruch, 0 Minuten, 24:00, 1440 Minuten, Dauer 1 Minute (0,02 h).
 - **Export-Ablauf** (kleiner Baustein der Oberfläche, hängt am Knopf): Sperre gegen Doppelklick, Zustände, Meldungen, Download.
 - **Wiederverwendung:** Fehlertexte und Fehlerarten der Zeiteinträge, Meldungen (Toast), Knopf, Ladezustand, Zürcher Datumsfunktion, Spaltenwerte der Einträge. Die Rundung auf 15 Minuten wird **nicht** verwendet (Produktentscheidung).
 
@@ -223,7 +224,7 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 - **Datenschicht** (`repository.ts`, `supabase-repository.ts`, `in-memory-repository.ts`, `types.ts`): neue Methode `listEntriesPage(offset)`. Sie liefert höchstens `EXPORT_PAGE_SIZE` (1000) Einträge ab Position `offset` plus die Gesamtzahl (`count: exact`), mit Kunde, Kürzel, Projekt und Archiv-Hinweisen. Sortiert wird **in der Datenbank**: Datum, Startzeit (ohne Uhrzeit zuletzt), Anlegezeit, Kennung. Kein Datums-, Kunden- oder Beschreibungsfilter.
 - **Blocklader** `export-all.ts`: `loadAllEntries(repository)` holt Block für Block, bis alle da sind. Bricht mit dem neuen Fehler `export-changed` ab, wenn die Gesamtzahl zwischen zwei Blöcken wechselt, ein Block zu früh leer ist, mehr Einträge ankommen als angekündigt oder eine Kennung doppelt vorkommt. Andere Fehler (Sitzung, nicht erreichbar) werden unverändert weitergereicht.
 - **Fehlermeldung** `errors.ts`: `export-changed` → «Während des Exports wurden Zeiten geändert. Bitte starte den Export erneut.»
-- **CSV-Baustein** `csv.ts` (reine Funktionen): `entriesToCsv(entries)` (BOM, Kopfzeile, Windows-Zeilenende, Semikolon), `entryToCsvRow`, `csvText` (Formelschutz mit Apostroph bei `=`, `+`, `-`, `@`, Tabulator, Zeilenumbruch am Anfang; Maskierung bei Semikolon, Anführungszeichen, Zeilenumbruch), `formatCsvHours` (Minuten ÷ 60, Dezimalkomma, zwei Stellen), `formatCsvDate` (TT.MM.JJJJ), `csvFileName(today)`. Die 15-Minuten-Rundung wird nicht verwendet.
+- **CSV-Baustein** `csv.ts` (reine Funktionen): `entriesToCsv(entries)` (BOM, Kopfzeile, Windows-Zeilenende, Semikolon), `entryToCsvRow`, `csvText` (Formelschutz mit Apostroph bei `=`, `+`, `-`, `@`, Tabulator, Zeilenumbruch am Anfang; Maskierung bei Semikolon, Anführungszeichen, Zeilenumbruch), `formatCsvHours` (Minuten ÷ 60, Dezimalpunkt, zwei Stellen), `formatCsvDate` (TT.MM.JJJJ), `csvFileName(today)`. Die 15-Minuten-Rundung wird nicht verwendet.
 
 ### Tests
 - **Vitest 488/488** (vorher 445, neu 43): `csv.test.ts` (Stunden, Datum, Maskierung, Formelschutz, Zeilen, Datei), `export-all.test.ts` (über 1000 Einträge lückenlos, Sortierung, Abbruch bei Änderung/Duplikat/leerem Block, Fehlerweitergabe), `supabase-repository.test.ts` (Sortierung, Bereich, Zähler, Archiv-Hinweise, Fehler). `tsc` und ESLint ohne Befund.
@@ -277,14 +278,14 @@ Keine neuen Pakete. Verwendet werden vorhandene Bausteine (Knopf, Meldungen/Toas
 **Inhalt**
 - [x] Alle Zeiten, unabhängig von Monat und Filtern (Kundenfilter und «Nur ohne Beschreibung» ändern nichts)
 - [x] Kopfzeile, elf Spalten, Reihenfolge
-- [x] Von–bis, Dauer, Stunden (105 → 1,75; 1 → 0,02; 5 → 0,08), Verrechenbar (0 bei nicht verrechenbar)
+- [x] Von–bis, Dauer, Stunden (105 → 1.75; 1 → 0.02; 5 → 0.08), Verrechenbar (0 bei nicht verrechenbar)
 - [x] Nur-Dauer-Einträge: Von/Bis leer; ohne Beschreibung leere Zelle
 - [x] Keine gerundete Spalte, keine Summenzeile
 - [x] Archivierter Kunde und archiviertes Projekt bleiben enthalten
 - [x] Sortierung Datum aufsteigend, am Tag nach Startzeit, ohne Uhrzeit danach (ganze Datei)
 
 **Excel-Verträglichkeit und Sonderzeichen**
-- [x] Semikolon, UTF-8 mit BOM, Windows-Zeilenende, Dezimalkomma, Datum TT.MM.JJJJ, Umlaute und Sonderzeichen unverändert (Dateiinhalt geprüft)
+- [x] Semikolon, UTF-8 mit BOM, Windows-Zeilenende, Dezimalpunkt, Datum TT.MM.JJJJ, Umlaute und Sonderzeichen unverändert (Dateiinhalt geprüft)
 - [ ] Teilweise: «öffnet sich in Excel per Doppelklick» ist über die Dateianalyse belegt, aber **nicht** in echtem Excel geprüft
 - [x] Beschreibung mit Semikolon, Anführungszeichen, Zeilenumbruch bleibt eine Zelle (jede Zeile hat elf Spalten)
 - [x] Formelschutz: `=…`, `@…`, `+…`, `-…` und Projektname mit `=` bekommen einen Apostroph; Formelzeichen in der Mitte nicht

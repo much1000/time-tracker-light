@@ -79,7 +79,7 @@ describe('Knopf «Als CSV exportieren»', () => {
     const text = await readBlob(blobs[0])
     expect(text).toContain('Datum;Kunde;Kundenkürzel;Projekt;Beschreibung;Von;Bis;')
     expect(text.split('\r\n').filter(Boolean)).toHaveLength(3)
-    expect(text).toContain(';Muster AG;MUS;Allgemein;Konzept;;;105;1,75;90;1,50')
+    expect(text).toContain(';Muster AG;MUS;Allgemein;Konzept;;;105;1.75;90;1.50')
     expect(button()).toBeEnabled()
   })
 

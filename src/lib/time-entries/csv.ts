@@ -1,6 +1,6 @@
 import type { TimeEntry } from './types'
 
-// CSV-Datei für den Export (PROJ-9): feste Spalten, Semikolon, UTF-8 mit BOM, Dezimalkomma.
+// CSV-Datei für den Export (PROJ-9): feste Spalten, Semikolon, UTF-8 mit BOM, Dezimalpunkt.
 // Reine Rechenfunktionen ohne Datenbank und Oberfläche. Die Rundung auf 15 Minuten gehört nicht hierher
 // (siehe Spec): alle Werte sind minutengenau.
 
@@ -28,13 +28,13 @@ export function formatCsvDate(date: string): string {
   return `${day}.${month}.${year}`
 }
 
-// Minuten → Stunden mit Dezimalkomma und zwei Nachkommastellen (105 → «1,75», 1 → «0,02»).
+// Minuten → Stunden mit Dezimalpunkt (wie Schweizer Excel) und zwei Nachkommastellen (105 → «1.75», 1 → «0.02»).
 // Gerechnet wird in ganzen Hundertsteln; Viertelwerte wie x,5 kommen bei Minuten ÷ 60 nie vor.
 export function formatCsvHours(minutes: number): string {
   const hundredths = Math.round((minutes * 5) / 3)
   const whole = Math.floor(hundredths / 100)
   const rest = String(hundredths % 100).padStart(2, '0')
-  return `${whole},${rest}`
+  return `${whole}.${rest}`
 }
 
 // Texte, die in Excel als Formel laufen würden (=, +, -, @, Tabulator, Zeilenumbruch am Anfang), bekommen
