@@ -408,3 +408,9 @@ Die genauen Menünamen können je nach Version des Dashboards leicht abweichen.
 - **Geprüft in Produktion (automatisch):** `/`, `/status` und unbekannte Adressen führen auf `/login` (mit `next`), `/passwort-neu` ohne Marker und ungültige Reset-Codes auf «Link nicht mehr gültig»; `Cache-Control: private, no-store` und Sicherheits-Header vorhanden; Login mit dem Testkonto auf Vercel funktioniert.
 - **Befund (Low):** Das Sitzungs-Cookie `sb-…-auth-token` wird vom Browser-Client ohne `Secure` gesetzt (`secure=false`, SameSite=Lax). Abgemildert durch HSTS (1 Jahr, `includeSubDomains`), sodass Browser nach dem ersten Besuch nie über HTTP anfragen. Behebung: Cookie-Option `secure` im Browser-Client auf HTTPS setzen.
 - **Noch von Hand zu prüfen:** Reset-Mail auf der Produktiv-Adresse (Redirect-URL in Supabase).
+
+## Nachträgliche Korrektur: Secure-Flag am Sitzungs-Cookie (2026-11-24)
+- **Behoben:** Das Sitzungs-Cookie der Anmeldung wird unter HTTPS mit `Secure` gesetzt. Neue Hilfsdatei `src/lib/supabase/cookie-options.ts` (+ Test): erkennt HTTPS am Protokoll bzw. am Header `x-forwarded-proto` und liefert die Cookie-Option. Sie wird an allen drei Stellen verwendet, die das Cookie schreiben: Browser-Client (`client.ts`), Server-Client (`server.ts`) und Türsteher (`session.ts`), damit das Flag bei einer Erneuerung nicht wieder verschwindet.
+- **Lokal unverändert:** Unter `http://localhost` bleibt das Flag aus (sonst würde die Anmeldung in manchen Browsern nicht gespeichert).
+- **Geprüft:** Vitest 509/509 (12 neue Tests), gesamte Browser-Suite 381/381 (inkl. Anmeldung, Abmelden, Seitenschutz). In Produktion: siehe unten, falls geprüft.
+- **Offen (Dashboard, nicht im Code):** «Leaked Password Protection» in Supabase (Auth → Passwörter) ist ausgeschaltet; Supabase bietet sie nur in kostenpflichtigen Plänen an. «Secure password change» ebenfalls nicht gesetzt.

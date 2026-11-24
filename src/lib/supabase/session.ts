@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { decideAccess } from '@/lib/auth/access'
 import { getSupabaseEnv } from '@/lib/env'
+import { isHttpsProtocol, sessionCookieOptions } from './cookie-options'
 
 // Wird vom Türsteher (proxy.ts) bei jedem Aufruf ausgeführt:
 // 1. erneuert die Anmeldung (Cookies), damit sie dauerhaft bestehen bleibt,
@@ -12,7 +13,10 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   try {
     const { url, anonKey } = getSupabaseEnv()
+    const https =
+      isHttpsProtocol(request.headers.get('x-forwarded-proto')) || isHttpsProtocol(request.nextUrl.protocol)
     const supabase = createServerClient(url, anonKey, {
+      cookieOptions: sessionCookieOptions(https),
       cookies: {
         getAll() {
           return request.cookies.getAll()
